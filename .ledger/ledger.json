@@ -57,7 +57,25 @@
  "blocks": {
   "2": {
    "status": "pending",
-   "attempts": []
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "tests/test_crypto.py lines 39-41 only assert the private key derivation: `assert priv.hex().upper() == DOCS_PRIV`; there is no test asserting the derived nano_ address equals a docs.nano.org example address. The DOCS_SEED is defined but no address from the docs example is asserted. Missing: a test like `assert derive_account(DOCS_SEED, index=1).address == 'nano_...'`."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py lines 22-28: `b = client.account_balance(\"nano_1faucet7b6xjyha7m13objpn5ubkquzd6ska8kwopzf1ecbfmn35d1zey3ys\")` then `raw = b[\"balance\"]` and `assert raw.isdigit()` and `assert int(raw) > 0`; pytest output /tmp/pytest-net.txt: `tests/test_client.py::test_live_balance_read PASSED`."
+      }
+     ],
+     "at": "2026-09-13T23:55:41+00:00"
+    }
+   ]
   },
   "3": {
    "status": "pending",

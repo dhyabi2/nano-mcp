@@ -35,10 +35,25 @@ NODE_PAIRS = [
 DOCS_SEED = "0000000000000000000000000000000000000000000000000000000000000001"
 DOCS_PRIV = "1495F2D49159CC2EAAAA97EBB42346418E1268AFF16D7FCA90E6BAD6D0965520"
 
+# docs.nano.org/integration-guides/key-management key_expand example (priv -> public -> account)
+DOCS_PRIV_EXPAND = "781186FB9EF17DB6E3D1056550D9FAE5D5BBADA6A6BC370E4CBB938B1DC71DA3"
+DOCS_PUB_EXPAND = "3068BB1CA04525BB0E416C485FE6A67FD52540227D267CC8B6E8DA958A7FA039"
+DOCS_ADDR_EXPAND = "nano_1e5aqegc1jb7qe964u4adzmcezyo6o146zb8hm6dft8tkp79za3sxwjym5rx"
+
 
 def test_private_key_derivation_matches_official_vector():
     priv = derive_private_key(DOCS_SEED, index=1)
     assert priv.hex().upper() == DOCS_PRIV
+
+
+def test_public_key_derivation_matches_docs_keyexpand():
+    # docs.nano.org key-management key_expand example: priv -> public
+    assert public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND
+
+
+def test_address_matches_docs_keyexpand():
+    # docs.nano.org key-management key_expand example: pub -> nano_ address
+    assert address_from_public_key(bytes.fromhex(DOCS_PUB_EXPAND)) == DOCS_ADDR_EXPAND
 
 
 @pytest.mark.parametrize("pub_hex,addr", NODE_PAIRS)
