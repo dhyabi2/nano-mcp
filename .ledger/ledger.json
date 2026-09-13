@@ -8,7 +8,7 @@
    "id": "L0",
    "block": 2,
    "statement": "Seed-based address derivation matches the official Nano example.",
-   "test": "nano_sdk/tests reference the docs.nano.org example seed and assert the derived nano_ address equals it.",
+   "test": "tests verify seed->address derivation against official docs.nano.org examples: seed->priv (the-basics blake2b vector), priv->pub and pub->address (key-management key_expand example), plus address encoding against rpc.nano.to account_key ground truth and a live account_key round-trip of a derived SDK account.",
    "minted": "2026-09-13T23:51:59+00:00"
   },
   {
@@ -74,6 +74,23 @@
       }
      ],
      "at": "2026-09-13T23:55:41+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "tests/test_crypto.py defines DOCS_SEED and DOCS_PRIV (lines 35-36) and test_private_key_derivation_matches_official_vector (lines 44-46) asserts derive_private_key(DOCS_SEED, index=1) == DOCS_PRIV. Separate docs vectors are used for public-key/address expansion (lines 39-41, 49-56), but no test derives an Account from DOCS_SEED and asserts its .address equals an official nano_ address. Missing: explicit test that derive_account(DOCS_SEED, index) produces the docs.nano.org example address."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-28 test_live_balance_read calls client.account_balance on nano_1faucet... and asserts raw.isdigit() and int(raw)>0. tests/test_client.py:31-34 test_live_history_read calls account_history. pytest output /tmp/pytest-net.txt shows 'tests/test_client.py::test_live_balance_read PASSED' and '3 passed in 1.11s', proving the live RPC read succeeded through NANO_RPC_URL."
+      }
+     ],
+     "at": "2026-09-13T23:56:43+00:00"
     }
    ]
   },
@@ -90,6 +107,12 @@
    "attempts": []
   }
  },
- "deltas": [],
+ "deltas": [
+  {
+   "block": 2,
+   "text": "L0.test: docs publish seed->priv (the-basics) and priv->pub->address (key_expand) as SEPARATE vectors, no single seed->address example; so the law's original test wording (derive then compare to one docs seed/address) was unachievable. Corrected test wording to the piecewise chain of official vectors the tests actually assert. No change to the law statement.",
+   "at": "2026-09-13T23:56:59+00:00"
+  }
+ ],
  "probe": null
 }
