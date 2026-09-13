@@ -1,0 +1,452 @@
+[
+ {
+  "feature": "F1",
+  "angle": 0,
+  "answer": "Nano-Call: Agent first POSTs the full request to /pending with a unique nonce. It then sends a Nano transaction to the server with that nonce as the link field (32 bytes). The server, listening on the Nano network, instantly matches the transaction to the pending request (via the nonce), verifies the transaction is settled (Nano finality <1s), executes the API call, and returns the result to the agent's pre-registered callback URL. Since Nano is feeless, the transaction carries a micro-amount (even 1 raw) as on-chain proof; no separate payment verification, no HTTP 402, no batching. Each call is one atomic, instant, feeless transaction.",
+  "methodology": "Most people would add a payment-verification layer on top of HTTP, checking each Nano transaction and then releasing the HTTP response; instead, we encode the API request directly in the Nano transaction's link field (e.g., method ID + nonce) so that payment and call are atomic, the server processes the transaction as a request and returns the result via a pre-registered callback, because this eliminates a trusted verifier and micro-call batching while leveraging Nano's feelessness and instant finality.",
+  "baseline": "Implement a pay-per-call API where the agent sends a Nano transaction to the server, and the server checks the Nano ledger for confirmation before executing the call.",
+  "error": null,
+  "n": 0
+ },
+ {
+  "feature": "F1",
+  "angle": 1,
+  "answer": "Implement an MCP tool `pay_and_call`: agent computes `invoice_id = SHA256(seed_nonce || request_hash)`, calls `/create_invoice` to get a unique address and exact amount, then sends Nano to that address with `invoice_id` as memo. Server watches the address, sees memo, validates amount, executes the request, and stores the result. Agent polls for the result. If a retry is needed, the same `invoice_id` reuses the same address and memo, so the server ignores duplicates, preventing double payment. Since Nano is instant and feeless, the entire flow is sub-second and cost-effective for each call.",
+  "methodology": "Most people would implement a two-step payment-then-call without idempotency, leading to double payments on retries; instead, we make the payment carry a unique idempotent invoice ID (via Nano's memo field) derived from the request, so the server can match payment to call and safely handle retries; because Nano's feeless and instant nature makes per-call invoices practical without batching.",
+  "baseline": "Have the AI agent send a Nano transaction to the server's address before each API call; the server verifies the payment and then executes the call.",
+  "error": null,
+  "n": 1
+ },
+ {
+  "feature": "F1",
+  "angle": 2,
+  "answer": "Biggest weakness: Nano blocks carry no memo, so a payment alone doesn’t tell the server which tool call or agent request it authorizes; without a trusted verifier, the server can’t associate a feeless instant transaction with a specific HTTP 402. One idea: make each tool call require a unique one-time payment address. The server derives a child address from its seed using the request nonce (e.g., m/0'/requestId), returns it in the 402 response, and subscribes to pending/confirmed blocks on that address only. The agent sends the exact XNO invoice to that address; when the server sees the block, it immediately matches it to requestId and executes the tool. Since each address is used once, the ",
+  "methodology": "Most people focus on latency and RPC trust; instead I treat the real weakness as missing payment-to-request correlation, because Nano blocks have no memo field and without a trusted verifier there is no way to know which call a payment authorizes.",
+  "baseline": "The biggest weakness is confirmation latency and trusting the public RPC; if rpc.nano.to is slow or unavailable, the server cannot confirm payment. Most would fix this by running a local Nano node and waiting for votes.",
+  "error": null,
+  "n": 2
+ },
+ {
+  "feature": "F1",
+  "angle": 3,
+  "answer": "Tool: **NanoPay-Proxy** – a drop-in HTTP 402 middleware for any MCP server. Core loop: 1) Agent calls MCP tool → proxy returns 402 with a unique Nano address and per-call amount (e.g., 0.000001 XNO). 2) Agent sends XNO to that address via rpc.nano.to. 3) Proxy polls rpc.nano.to for confirmation (settles in <1s). 4) On confirm, proxy forwards original request to the underlying MCP server and relays response. Because Nano has zero fees, micro-calls are viable; no batching, no verifier, fully self-custody.",
+  "methodology": "Most people build a single-purpose pay-per-call MCP server; instead create a generic Nano payment proxy middleware that wraps any existing MCP server, because Nano's feeless and instant transactions remove the need for a trusted verifier or batching.",
+  "baseline": "Build a dedicated nano-mcp server that directly handles XNO payments and tool execution, mirroring x402 but with Nano instead of USDC.",
+  "error": null,
+  "n": 3
+ },
+ {
+  "feature": "F1",
+  "angle": 4,
+  "answer": "The nano-mcp server dynamically prices each tool call using AIMD from TCP. It exposes a 'quote' endpoint returning the current fee in raw (10^-30 Nano). For each successful call within a 1s window, fee += 1 raw; if the request queue exceeds 10 or a timeout occurs, fee = max(1, fee//2). The agent fetches the quote, sends exactly that amount to the server's address, and receives a signed token, then calls the tool with the token; the server verifies the payment on rpc.nano.to instantly. This congestion-control micro-pricing smooths demand, prevents overload, and leverages Nano's zero fee to allow arbitrary price granularity—something no existing x402 or Nano-core SDK does.",
+  "methodology": "Most people set a static fee or prepaid quota; instead we adapt the fee in real-time using TCP's AIMD congestion algorithm (additive increase/multiplicative decrease), because feeless and instant Nano micro-payments make per-call dynamic pricing feasible without overhead.",
+  "baseline": "Implement a fixed-price pay-per-call where the agent sends a predetermined Nano amount per API request, or use a prepaid balance account.",
+  "error": null,
+  "n": 4
+ },
+ {
+  "feature": "F2",
+  "angle": 0,
+  "answer": "Per-Request Nano Payment Address (PRPA). Mechanism: Server issues a request ID. It derives a unique destination address using HMAC(server_seed, request_id) converted to a Nano public key. Client sends the exact XNO amount to that address. Server monitors all derived addresses via rpc.nano.to using account subscriptions. When a block appears and is confirmed, the server serves the MCP tool response. This beats F2 by eliminating the need to correlate payments to requests via side channels, preventing payment replay (each request has a unique address), enabling concurrent async calls without ambiguity, and using Nano's feeless/instant properties for sub-second confirmation—all strictly on-chain",
+  "methodology": "Most people trust a third-party verifier or shared API key; instead, derive a unique Nano address per request from the server's seed and the request ID, and verify on-chain that the client sent XNO to that exact address; because this binds payment to request cryptographically on-chain, eliminating any interposed trust and preventing replay/confusion.",
+  "baseline": "Trust an interposed verifier or an out-of-band API key to authorize API calls.",
+  "error": null,
+  "n": 5
+ },
+ {
+  "feature": "F2",
+  "angle": 1,
+  "answer": "For each API call, derive a unique one-time address from the seed (HMAC with a request counter). Server generates a payment request with amount + address. It polls rpc.nano.to's `account_history` on that address every 300ms with exponential backoff. When a block with the exact amount appears (confirmed by being present in the chain), the payment is verified, the address is marked spent, and the call is served. To avoid missing blocks, also subscribe to `confirmation` events via WebSocket if available. This is fully reproducible, requires no third parties, and is controllable by using deterministic address derivation and polling state. Replay is impossible since each address is used once. The",
+  "methodology": "Most people trust a third-party verifier or API keys; instead monitor the Nano public ledger directly via rpc.nano.to, because the chain is instant, feeless, and transparent, so the server can autonomously verify payments by observing incoming blocks to addresses derived from the seed.",
+  "baseline": "Trust an interposed verifier (e.g., payment processor) or share an API key out-of-band to confirm payment before serving.",
+  "error": null,
+  "n": 6
+ },
+ {
+  "feature": "F2",
+  "angle": 2,
+  "answer": "For F2, we implement a multi-RPC verification layer. The server collects the payment transaction's block hash from the caller. It then sends a 'block_info' request to at least three independent Nano RPC endpoints (e.g., rpc.nano.to, app.nano.to, and a local lightweight node). Only if at least two endpoints return the same confirmed block with the correct amount and destination account does the server consider the payment valid. If any node disagrees or times out, the request is rejected. This prevents reliance on any single interposed verifier and ensures the payment is confirmed by the network itself.",
+  "methodology": "Most people trust a single public RPC node for on-chain verification; instead we query a quorum of independent Nano RPC nodes and require consensus; because this eliminates a single point of failure and uses the distributed network to validate, matching Nano's decentralized trust model.",
+  "baseline": "The biggest weakness is that verifying payments relies on a single public RPC node (rpc.nano.to), which could be slow, unavailable, or malicious. The obvious fix is to run your own full node.",
+  "error": null,
+  "n": 7
+ },
+ {
+  "feature": "F2",
+  "angle": 3,
+  "answer": "Tool: NanoVoucher – a payment verification middleware for MCP servers.\n\nCore loop:\n1. Client creates a signed Nano transaction (block) paying the server's address an exact amount, but does NOT broadcast it. This is a voucher.\n2. Client sends the raw voucher with its API request.\n3. Server validates the voucher (signature, amount, destination, unspent state) and broadcasts it via rpc.nano.to.\n4. Server waits ~1 second for confirmation (poll or subscribe).\n5. Server executes the requested tool and returns the response.\n\nThis generalizes to any service: a self-contained, trustless pay-per-call pattern without an interposed verifier or out-of-band API keys. The server controls the broadcast, so ",
+  "methodology": "Most people poll the destination address for an incoming balance; instead we invert control: have the client hand the server a signed but un-broadcast transaction (voucher), which the server broadcasts itself, guaranteeing payment before serving; because it eliminates the race between client broadcast and server check, and needs no polling before the request.",
+  "baseline": "Build a payment verifier that polls the destination address on the Nano RPC for an incoming balance change after each request.",
+  "error": null,
+  "n": 8
+ },
+ {
+  "feature": "F2",
+  "angle": 4,
+  "answer": "Idea: Probabilistic Verification with Bloom Filter + VRF Auditing. The MCP server streams Nano block lattice data into a local Bloom filter of transaction hashes (size proportional to expected volume). When a client claims payment, the server checks the filter: if absent, it immediately does a full RPC verify and rejects if invalid; if present, it serves the response. Simultaneously, a VRF seeded by the transaction hash and server's secret selects this payment with probability p (e.g., 1%). Selected payments undergo full RPC verification. If any fail, the client's key is blacklisted. To incentivize honesty, all clients must deposit a small prefunded amount (e.g., 0.01 XNO); on a failed audit",
+  "methodology": "Most people query the node every time; instead we maintain a local Bloom filter of recently confirmed transaction hashes and use a verifiable random function (VRF) to probabilistically select a small subset of payments for full RPC verification; because this cuts down latency and RPC load while keeping the risk of false positives negligible, and VRF-based auditing ensures the server can't be gamed.",
+  "baseline": "Directly query the rpc.nano.to node for every incoming payment to verify the transaction exists and is confirmed before serving the API call.",
+  "error": null,
+  "n": 9
+ },
+ {
+  "feature": "F3",
+  "angle": 0,
+  "answer": "Nano Local Signing Gateway: a self-contained sidecar HTTP service. Set NANO_SEED as an env var; the agent calls POST /send {to, amount}. The gateway derives the address, performs ed25519 signing and proof-of-work via rpc.nano.to, broadcasts, and returns the tx hash. Also exposes /balance and /derive. The seed never leaves the host and never appears in a request. It beats the SDK by being language-agnostic (plain REST), requiring zero library imports, and usable from any agent via curl or fetch, while preserving self-custody. The gateway can run as a subprocess or Docker container. This is strictly better because it removes all Nano crypto knowledge from the agent, works across every language",
+  "methodology": "Most people write a language-specific SDK; instead build a tiny local HTTP service (gateway) that exposes /derive, /balance, /send endpoints and does all Nano crypto internally, because it makes any agent (Python, JS, Go, etc.) able to self-custody XNO via plain HTTP calls without importing or compiling anything, while keeping the seed entirely on the host via an env var.",
+  "baseline": "An SDK library that wraps Nano crypto: seed derivation, blake2b hashing, ed25519 signing, and proof-of-work, exposing functions like send(seed, to, amount).",
+  "error": null,
+  "n": 10
+ },
+ {
+  "feature": "F3",
+  "angle": 1,
+  "answer": "A seed-based HD wallet SDK with a single `send(seed, to, amount)` method. It deterministically derives addresses (BIP44 path), signs with ed25519, and auto-generates proof-of-work via rpc.nano.to (configurable fallback). Provides `generateSeed()`, `getAddress()`, and a CLI. All operations deterministic from seed; internal complexities hidden but overridable. This gives programs reproducible self-custody.",
+  "methodology": "Most people expose low-level crypto operations; instead provide a high-level SDK with a single send() method that handles seed-derived address generation, signing, and proof-of-work via rpc.nano.to with configurable fallback, because programs need reproducible control without deep Nano knowledge.",
+  "baseline": "Provide a library with functions for key derivation, ed25519 signing, and proof-of-work, requiring the programmer to understand Nano crypto and manage sub-processes.",
+  "error": null,
+  "n": 11
+ },
+ {
+  "feature": "F3",
+  "angle": 2,
+  "answer": "Ship a lightweight, stateless CLI (e.g., `nano-wallet`) that handles seed generation, address derivation, and sending with automatic PoW via rpc.nano.to. The agent invokes it as a subprocess, passing the seed via an environment variable (or a secure file) and arguments like `send --to <addr> --amount <raw>`. This works from any language, requires zero crypto libraries, and keeps keys on the agent's side.",
+  "methodology": "Most people think the fix is to add a wrapper that abstracts the crypto; instead we redesign the SDK as a stateless CLI binary that encapsulates all Nano operations, so any agent can call it via subprocess, because this eliminates library-specific dependencies and crypto knowledge while keeping the seed self-custodied.",
+  "baseline": "The biggest weakness is that the SDK requires developers to know Nano’s cryptographic details (blake2b, ed25519, proof-of-work), making it hard to integrate for non-crypto experts.",
+  "error": null,
+  "n": 12
+ },
+ {
+  "feature": "F3",
+  "angle": 3,
+  "answer": "Tool: NanoWalletd (NWD). A local HTTP daemon acting as a self-custody Nano wallet for agents. It stores a seed encrypted on disk (or via OS keychain) and exposes REST endpoints: /balance, /derive, /send, /pay. Internally it handles blake2b address generation, ed25519 signing, and PoW (cached per account). Core loop: Agent POSTs {receiver, amount} to /pay; NWD signs the transaction, submits to rpc.nano.to, and returns the tx hash. The MCP server only needs to call NWD via HTTP, not embed crypto. NWD is language-agnostic, containerized, and exposes a small JSON API, generalizing F3 to any agent stack. It also provides a /mnemonic endpoint for backup and /lock /unlock for session security, maki",
+  "methodology": "Most people build library-specific wrappers; instead ship a standalone HTTP daemon that isolates all Nano cryptography and key handling behind a language-agnostic REST API, because it lets any agent (or MCP server) in any language use self-custody payments with zero knowledge of Nano internals and provides a single auditable security boundary.",
+  "baseline": "Most people would create a per-language SDK that wraps Nano crypto (blake2b, ed25519, PoW) into simple functions, e.g., a JavaScript package like @openrai/nano-core. That limits adoption to one language and still requires the agent developer to understand key management and PoW.",
+  "error": null,
+  "n": 13
+ },
+ {
+  "feature": "F3",
+  "angle": 4,
+  "answer": "SDK learns each tool's call intensity via a self-exciting Hawkes process. Before a predicted burst, it pre-sends a Nano 'credit' to the MCP server (feeless/instant). The server only executes tools when credit exists. If no burst occurs, the credit remains unused—no cost. When actual calls deviate from predicted intensity, SDK freezes wallet and requires re-auth, turning anomaly detection into a financial derivative. This fuses stochastic point-processing from quantitative finance with self-custody Nano to create an anticipatory, self-regulating pay-per-call system.",
+  "methodology": "Most people wrap Nano crypto into a static library; instead embed the wallet in a self-exciting Hawkes process that predicts future API call intensities and pre-funds them, because Nano's feeless and instant nature turns micro-credits into a dynamic resource scheduler with no cost for unused predictions.",
+  "baseline": "Build a typical SDK that exposes seed derivation, ed25519 signing, blake2b hashing, and RPC calls to rpc.nano.to, with the agent manually managing each send.",
+  "error": null,
+  "n": 14
+ },
+ {
+  "feature": "F4",
+  "angle": 0,
+  "answer": "NanoPayNow: a stateless pay-per-call MCP server. For each tool, client fetches a quote (price, request_id) via a 'quote' tool. Client sends a Nano payment to a service address for exactly that price, then calls the tool with 'payment_tx' = the transaction hash. The server verifies on rpc.nano.to that the tx is confirmed, destination matches, amount matches the stored quote, and the hash is unused; then executes the tool. If execution fails, the server automatically refunds (feeless) to the sender. A tiny in-memory set prevents replay. No credit accounts, no cancellation logic; settlement is atomic per call.",
+  "methodology": "Most people build a separate settlement ledger outside the server; instead tightly couple each tool invocation to a Nano transaction hash, verified atomically via the public RPC, because it eliminates the entire credit layer, makes pay-per-call stateless, and leverages Nano's instant feeless nature.",
+  "baseline": "F4: a service-side credit system that tracks incoming Nano payments, credits user balances, and exposes price/credit/cancel tools via the MCP server.",
+  "error": null,
+  "n": 15
+ },
+ {
+  "feature": "F4",
+  "angle": 1,
+  "answer": "For F4, define a pay-per-request scheme: the server derives a child address from its seed and a request ID (BIP32 path m/18H/<id>). The `pay_request` tool returns that address and the current price (from a JSON config). The user sends XNO to it; the server checks `account_info` on rpc.nano.to, and if confirmed balance >= price, it executes the requested MCP tool. Pricing set via `set_price`. Refund via `cancel_request` sending back from the child account after a TTL. All state is on-chain, so any program can reproduce the address and verify payment.",
+  "methodology": "Most people would rely on a third-party settlement layer or a custom DB; instead, we encode payment state into deterministic Nano child accounts, because it makes the server stateless, auditable, and programmatically verifiable from the request ID alone.",
+  "baseline": "Most people would build a separate payment service with a SQL database to track balances, prices, and refunds, and expose CRUD tools to that DB.",
+  "error": null,
+  "n": 16
+ },
+ {
+  "feature": "F4",
+  "angle": 2,
+  "answer": "Biggest weakness: The server cannot autonomously set prices, track incoming funds, or issue credits/refunds—settlement is external and disconnected. Fix: Implement a per-request payment verification inside the MCP server. Each tool call includes a user address and signed payment ID. The server derives a unique address from the seed for that user, queries rpc.nano.to for the latest transaction, and confirms the amount matches the advertised price within a short time window. Upon success, it records a credit locally (and can send a refund via a simple reverse transaction if needed). This makes the server self-contained, trustless, and real-time—no external gateway required.",
+  "methodology": "Most people separate payment settlement from the API server; instead, embed payment verification directly into the MCP server’s tool execution, because it removes third-party trust and enables atomic credit/refund actions.",
+  "baseline": "Use an external payment processor or separate daemon to detect Nano payments, then call the MCP server with a verified credit.",
+  "error": null,
+  "n": 17
+ },
+ {
+  "feature": "F4",
+  "angle": 3,
+  "answer": "Tool: NanoPay – a self-contained credit manager for MCP servers. Core loop: 1) Provider sets per-call price via REST. 2) Agent requests an invoice (unique ID). 3) Agent sends Nano to provider's address with invoice ID as memo. 4) NanoPay listens on rpc.nano.to, verifies payment, credits the agent's balance. 5) Agent calls the MCP tool with an auth token (invoice ID + signature). 6) Server verifies token locally and deducts from the balance (off-chain). 7) On low balance, agent recharges; provider can refund via NanoPay REST. NanoPay exposes a generic API (set-price, balance, debit, refund) so any MCP server can plug in with a single SDK. It keeps settlement and accounting separate, auditable",
+  "methodology": "Most people embed payment logic into the MCP server; instead we turn it into a separate, reusable 'NanoPay' microservice that tracks credits and prices via the Nano ledger, because it decouples settlement from server logic and generalizes across any API.",
+  "baseline": "Build the price/credit tools as an internal module inside the nano-mcp server, directly calling rpc.nano.to for each payment check and holding balances in a database.",
+  "error": null,
+  "n": 18
+ },
+ {
+  "feature": "F4",
+  "angle": 4,
+  "answer": "Stake-to-Pay: The nano-mcp server maintains a staking contract. Clients deposit XNO (min 1) to open a stake. Credit limit = 50% of stake, reset each block. Call price = base_price * (1 - (stake/total_staked) * 0.5), so bigger stakers pay less. On each call, server deducts from credit; if credit goes negative, client gets 10s to top up or the server slashes 10% of the stake to cover the loss. All via rpc.nano.to with instant finality. This merges F4 with proof-of-stake slashing, enabling trustless prepaid usage without an external verifier.",
+  "methodology": "Most people expose static price and credit tools; instead, apply proof-of-stake mechanics: clients lock Nano as collateral to automatically receive credit and dynamic price discounts, with slashing for unpaid usage, because it creates a self-enforcing trust layer without a central verifier.",
+  "baseline": "Expose static price-setting and credit-management API functions where the server manually assigns prices and extends credit based on its own business logic.",
+  "error": null,
+  "n": 19
+ },
+ {
+  "feature": "F5",
+  "angle": 0,
+  "answer": "Feature: Pre-signed Payment Token Stash. Mechanism: SDK derives a subaccount from the seed; agent funds it once. For each API call, SDK pre-signs a Nano transaction from that subaccount to the server address with unique nonce, amount = price, and memo = request hash. This signed tx is a payment token. Agent sends token + request to MCP server; server verifies signature and nonce, broadcasts tx, executes tool. Benefits: offline token preparation, no handshake, nonce prevents double-spend, works for bulk pre-funding. Beats F5 by adding efficiency and idempotency at the payment layer, not just flow reproducibility.",
+  "methodology": "Most people add idempotency keys and retries; instead have the SDK pre-sign a batch of fixed-amount Nano transactions used as one-time payment tokens; because it makes pay-per-call atomic, offline, and verifiable without a handshake, strictly improving over reproducibility.",
+  "baseline": "Most people would add idempotency keys and retry logic to make the payment flow reproducible.",
+  "error": null,
+  "n": 20
+ },
+ {
+  "feature": "F5",
+  "angle": 1,
+  "answer": "Implement a challenge-response payment protocol: the MCP tool first returns a `payment_challenge` (unique nonce, amount, TTL). The SDK automatically builds and broadcasts a Nano send transaction from the agent's derived wallet to the server's receiving account, embedding the nonce in the `link` field. The agent then calls the tool again with the transaction hash; the server verifies the transaction (valid signature, correct amount, nonce match, account match) using rpc.nano.to, and executes the tool. This removes any GUI or manual approval, makes the flow deterministic (nonce prevents replay), and leverages Nano's instant finality for near-immediate execution.",
+  "methodology": "Most people would assume the agent must manually approve each payment in a wallet GUI; instead, we embed a server-issued payment challenge into the request and have the SDK automatically sign and broadcast a Nano transaction with that challenge as the link field, because this makes the payment step deterministic, replay-protected, and fully scripted.",
+  "baseline": "Use a wallet GUI to manually approve each payment before the MCP tool call.",
+  "error": null,
+  "n": 21
+ },
+ {
+  "feature": "F5",
+  "angle": 2,
+  "answer": "Implement a `request_faucet` tool in nano-mcp. On first use, the SDK generates a new seed and derives a receiving address. The agent calls `request_faucet` with the address and a signed challenge (e.g., a nonce from the server). The server (operated by the nano-mcp host) validates the signature, applies per-agent rate limits, and sends a small amount of Nano (e.g., 0.0001 XNO) to that address. The agent then pays for API calls normally via that address. This eliminates any manual wallet setup, making the pay-per-call flow fully automated and reproducible.",
+  "methodology": "Most people assume a pre-funded wallet; instead we introduce a self-bootstrapping flow where the agent generates a fresh seed and requests a small Nano grant from the MCP server via a signed handshake, because that removes the human dependency and makes the pay-per-call flow fully reproducible from scratch.",
+  "baseline": "The biggest weakness is that the agent must have a pre-existing Nano wallet with funds; setting up that wallet and loading it with Nano requires a human (e.g., using a GUI wallet or manual exchange).",
+  "error": null,
+  "n": 22
+ },
+ {
+  "feature": "F5",
+  "angle": 3,
+  "answer": "Tool: NanoPayLink — a lightweight Node.js SDK that turns any MCP server into a self-service paywall. Core loop:\n\n1. Agent calls `requestQuote` → server returns a unique receive address (derived from its master pubkey via BIP43-style derivation) + amount + request token.\n2. Agent sends Nano to that address using its own seed-derived wallet.\n3. Agent calls the actual tool with the token; server checks the address balance via rpc.nano.to, confirms the exact amount arrived (instant settlement), then executes the tool and returns the result.\n\nNo GUI, no stablecoin, no human. The SDK also auto-prunes spent addresses. This generalizes to any API: use NanoPayLink to add fee-per-request to any servic",
+  "methodology": "Most people rely on a human to link payment to an API call; instead we encapsulate the entire verification loop in a self-contained SDK that generates a unique payment address per request and auto-verifies settlement via public RPC; because Nano’s instant, feeless nature makes this micro-transaction pattern fully scriptable and trustless.",
+  "baseline": "Most people would build a pay-per-call flow that requires a manual step—like opening a wallet GUI to approve a transaction or manually copying a payment ID into the API call—assuming a human is in the loop. They rely on stablecoin bridges or trust a third-party verifier.",
+  "error": null,
+  "n": 23
+ },
+ {
+  "feature": "F5",
+  "angle": 4,
+  "answer": "Implement a Merkle-batched payment protocol: The agent collects N API call requests, each with a unique ID (e.g., SHA-256(nonce)), builds a Merkle tree from these IDs, and computes the root. It then sends one Nano transaction to the server paying the total sum, with the Merkle root as the transaction memo (via the 'representative' field or a custom index). After confirmation (instant), the agent posts each request to the MCP server along with a Merkle proof containing the IDs. The server verifies the proof against the root stored in the memo, checks the total amount matches the sum of per-call fees, and then executes the calls. This eliminates per-tx management, guarantees program reproducib",
+  "methodology": "Most people would do a per-call payment with individual confirmations; instead we batch multiple API calls into a single Nano transaction whose memo is the Merkle root of all request IDs, because this reduces RPC overhead, gives atomic settlement, and enables a self-reproducible scripted flow with no per-call human step.",
+  "baseline": "Use the SDK's send function to pay for each API call, signing and broadcasting immediately, then waiting for node confirmation before calling the MCP tool.",
+  "error": null,
+  "n": 24
+ },
+ {
+  "feature": "F6",
+  "angle": 0,
+  "answer": "**Pre‑signed TxChain**: The SDK generates a batch of Nano transactions (e.g., 1000) from the agent's wallet to the server's address, each for a fixed price per API call. Each transaction is signed once, and its PoW is computed against the previous transaction's block hash, forming a valid chain. For every API call, the agent simply sends the next pre‑signed transaction to rpc.nano.to's `process` endpoint. The server verifies the payment in its received history and then responds. This beats F6 because: (1) per‑call latency is only a broadcast—no signing or PoW work at runtime; (2) the seed is never exposed during operation, as all signing happens offline; (3) the public RPC is used minimally,",
+  "methodology": "Most people would sign and compute PoW on each call; instead precompute a chain of signed transactions with precomputed PoW for each future payment, because it turns the per-call action into a single broadcast, eliminating runtime signing, reducing latency, and allowing the seed to stay offline.",
+  "baseline": "A straightforward MCP server that uses rpc.nano.to directly: the agent signs each payment and computes proof-of-work locally or via an RPC call, then broadcasts the transaction for every API request.",
+  "error": null,
+  "n": 25
+ },
+ {
+  "feature": "F6",
+  "angle": 1,
+  "answer": "Embed a Wasm-based Nano PoW module in the SDK (e.g., @nano-pow). On startup, precompute work for the first block of each derived account. For each send, sign locally, check a per-account frontier cache for valid work, and if missing, compute it in a Web Worker/thread (no node). Then broadcast via a single HTTP call to rpc.nano.to `process`; optionally fallback to remote work if local CPU is too slow. The program can set difficulty, cache size, and concurrency. This makes any agent instantly pay from one RPC endpoint without a node, fully controllable and reproducible.",
+  "methodology": "Most people delegate both PoW generation and broadcasting to the node; instead, embed a lightweight WebAssembly PoW generator in the SDK so the agent only uses rpc.nano.to as a broadcast relay, because this makes the SDK self-contained, avoids remote work bottlenecks, and preserves instant feeless self-custody.",
+  "baseline": "Implement a simple wrapper that calls rpc.nano.to's work_generate and process endpoints for each transaction.",
+  "error": null,
+  "n": 26
+ },
+ {
+  "feature": "F6",
+  "angle": 2,
+  "answer": "The biggest weakness is that each transaction requires proof-of-work, which is computationally expensive for lightweight agents. The fix: offload PoW to a dedicated work-for-hire HTTP service. The SDK generates the block, signs it locally, then sends the block hash to a work server (e.g., via a simple POST) to receive a valid nonce. Once the work is received, the SDK submits the block to rpc.nano.to. This keeps the seed private, eliminates local PoW computation, and works with any standard HTTP client. The work server can be a trusted community node or a distributed pool, and payment for work can be settled in Nano itself (microtransactions). Thus agents hold XNO and pay per call with minima",
+  "methodology": "Most people would solve this by running a full node or using a third-party custodian; instead we decouple proof-of-work from the agent's runtime by offloading it to a work server, while keeping signing local; because that preserves self-custody and removes computational overhead.",
+  "baseline": "Nano's biggest weakness is that transacting requires signing and proof-of-work, and often a synced node, which complicates instant usability for agents.",
+  "error": null,
+  "n": 27
+ },
+ {
+  "feature": "F6",
+  "angle": 3,
+  "answer": "NanoPay MCP Gateway — a reverse proxy that adds Nano payments to any MCP server. Core loop: 1) Agent asks gateway for a unique destination address (derived from a master public key) and amount. 2) Gateway computes a payment request ID (hash of the MCP request). 3) Agent's SDK signs and sends a Nano transaction to that address with the request ID in the `link` field, broadcasting via rpc.nano.to (POW auto-computed in client). 4) Gateway polls the RPC for new blocks, verifies amount and link, then forwards the original MCP request to the backend. 5) Backend response is returned to agent. All crypto (key management, signing, POW, broadcast) stays inside the SDK—the agent only makes one HTTP cal",
+  "methodology": "Most people would wrap an existing SDK; instead we build a stateless HTTP proxy that turns any MCP server into a pay-per-call service, because it abstracts all Nano complexity into a single request-response cycle, using the public RPC for node interaction and a unique destination address per request to keep it trustless.",
+  "baseline": "Most people would wrap the existing @openrai/nano-core SDK to handle signing and sending, but that still requires the agent to manage seeds and compute proof-of-work locally, which is complex and not a single-request abstraction.",
+  "error": null,
+  "n": 28
+ },
+ {
+  "feature": "F6",
+  "angle": 4,
+  "answer": "Implement a 2-of-2 threshold Ed25519 MPC between the agent and a delegate running alongside rpc.nano.to. The agent stores only a partial private key (derived from a seed share); the delegate stores the other share. When the agent needs to send a payment: (1) it asks the delegate for its current account frontier (via HTTP), (2) constructs the block, (3) computes a partial signature, (4) sends it to the delegate, (5) the delegate combines the signatures (producing a valid Ed25519 signature without ever seeing the full key), generates PoW using `work_generate`, and broadcasts the block. The delegate cannot spend without the agent's share. This provides true no-node usability: one HTTP RPC for s",
+  "methodology": "Most people keep the entire private key locally and offload PoW to a third party; instead, split the private key between the agent and a remote node using a 2-of-2 threshold Ed25519 MPC, so the remote node can combine signatures, compute PoW, and submit blocks without ever owning the full key; because this gives the agent a single HTTP endpoint for all operations while preserving self-custody and eliminating the need to sync or trust a node with the key.",
+  "baseline": "Most people would build an SDK that stores the full seed on the agent, signs transactions locally, and uses a remote node (like rpc.nano.to) to generate proof-of-work and broadcast. This keeps custody but forces the agent to fully expose its private key and relies on the remote node for state and PoW, creating a single point of key compromise.",
+  "error": null,
+  "n": 29
+ },
+ {
+  "feature": "F7",
+  "angle": 0,
+  "answer": "NanoPID (PID Adaptive Pricing). Mechanism: The server continuously measures average response time (EMA over 1s) and compares to a target (e.g., 200ms). A PID controller computes a price adjustment: price = clamp( base + Kp*error + Ki*∫error dt + Kd*d(error)/dt, min, max ). The current price is exposed via an MCP tool 'get_price'. The agent reads price, sends that exact amount in Nano to the server's address, then calls the desired tool; server verifies the payment (within 1 RPC round-trip) and executes. Because Nano is feeless, price updates can happen every second without overhead. This beats a generic borrowed mechanism because control theory guarantees stability: the PID self-corrects con",
+  "methodology": "Most people fix a price per call; instead we use a PID controller from control theory to dynamically set the price based on server latency; because Nano's zero-fee, instant settlement enables real-time micro-pricing and feedback, so the server can autonomously maintain target response times and stable revenue while adapting to demand.",
+  "baseline": "A fixed Nano price per API call or a prepaid Nano balance for agents.",
+  "error": null,
+  "n": 30
+ },
+ {
+  "feature": "F7",
+  "angle": 1,
+  "answer": "Combine Nano with a control-theoretic token bucket. Server runs a PI controller on its queue length; price per token = P*error + I*∫error. User's SDK fills a token bucket by sending Nano to a channel (balance tracked on-chain via Nano's block lattice). Each API call burns a token. The controller's params and queue are public, so the SDK predicts the price and adjusts fill rate. Nano's feelessness makes price updates free, and the deterministic rule ensures reproducible, program-controlled payments.",
+  "methodology": "Most people use a fixed prepaid ledger; instead, use a token bucket with a fill rate governed by a PID controller on the server's queue depth, because this yields a deterministic price signal that programs can adapt to while keeping Nano feeless.",
+  "baseline": "Most people would have the user send Nano to a server address for each call, or maintain a simple prepaid balance with a fixed per-call fee.",
+  "error": null,
+  "n": 31
+ },
+ {
+  "feature": "F7",
+  "angle": 2,
+  "answer": "Per-call payment: Combine Nano settlement with a token-bucket payment channel. Client sends a lump sum to a derived address, funding an off-chain signed 'token bucket' that deducts a fixed price per call. Each call requires a signed authorization from the client; server validates, updates the bucket, and processes the request. Only two on-chain transactions occur (open and close), cutting per-call overhead. Weakness: off-chain bucket relies on server accounting. Fix: server posts a Nano bond; if it signs conflicting states, the bond is slashed. The client can verify the bucket by ensuring total signed deductions plus on-chain balance never exceed the initial deposit. This yields instant, fee",
+  "methodology": "Most people require a new Nano transaction per call; instead use a token-bucket payment channel where the client deposits a lump sum, both parties sign an off-chain balance that decrements per call, and only opening/closing transactions hit the ledger, because it eliminates per-call on-chain overhead while preserving Nano's fast, feeless settlement.",
+  "baseline": "Each API call requires the agent to send a separate Nano transaction to the server; the server waits for ledger confirmation before processing the call, resulting in one on-chain transaction per call.",
+  "error": null,
+  "n": 32
+ },
+ {
+  "feature": "F7",
+  "angle": 3,
+  "answer": "Tool: NanoValve. Core loop: Agent maintains a local credit balance C (Nano). Set low=1, high=5. Each API call: deduct cost (e.g., 0.1) from C. If C < low, send one top-up transaction of (high - C) Nano to server address. Server tracks each agent's prepaid account A (from sender address). Before a call, if A < 0.5 (server_low), return HTTP 402 'insufficient credit', causing the agent to top-up immediately. After payment, add to A; after serving, deduct cost. Hysteresis: agent tops up at 1, server refuses at 0.5, so no endless oscillation. SDK auto-manages this, reducing per-call latency to zero for in-flight calls, and ensures service continuity without per-call payment wait.",
+  "methodology": "Most people send a Nano transaction per call, incurring latency and transaction overhead; instead, use a hysteresis controller where the agent tops up a prepaid balance only after it drops below a low-water mark, and the server enforces its own deadband to prevent oscillation; because Nano's instant feeless settlement makes prepaid credit practical, and borrowing from control theory (bang-bang control) minimizes transaction frequency while guaranteeing service.",
+  "baseline": "For each API call, the agent sends a separate Nano transaction to the server's address, waits for confirmation, then gets the response.",
+  "error": null,
+  "n": 33
+ },
+ {
+  "feature": "F7",
+  "angle": 4,
+  "answer": "Implement a per-call pricing loop using a PID controller. The MCP server tracks each agent's request rate over a 60-second sliding window. A target rate (e.g., 10 req/s) is set per agent. The error (target - actual) feeds a PID controller (Kp=0.1, Ki=0.05, Kd=0.02) that outputs a price multiplier between 0.5 and 2.0. Each tool call requires the agent to send `base_price * multiplier` Nano (base=0.000001) to the server's address. The server monitors the Nano network via rpc.nano.to until finalization (usually <1s), then executes the call. The controller adjusts the multiplier to keep the agent's rate near target, naturally damping bursts and raising prices during congestion. This makes the sc",
+  "methodology": "Most people rely on prepaid buckets or fixed-price per-call transactions; instead, use a closed-loop feedback control (PID controller) to dynamically adjust the Nano price per call based on real-time server load and each agent's usage, because Nano's instant, feeless settlement enables fine-grained pricing adjustments without transaction overhead.",
+  "baseline": "Most people would design a per-call payment scheme using a prepaid wallet or a token bucket where the agent tops up with Nano and then spends from that bucket, or by requiring a fixed-price Nano transaction per call.",
+  "error": null,
+  "n": 34
+ },
+ {
+  "feature": "F8",
+  "angle": 0,
+  "answer": "Idea: SessionWallet. Mechanism: MCP handshake establishes a signed budget. Each tool call carries a nonce; server verifies signature, deducts from balance, executes, returns result with a signed receipt. No on-chain tx per call. At session end, client sends the total to the server. Beats F8 by making payment transparent, atomic, and customizable—agent never triggers a payment, and the server can throttle if budget depletes.",
+  "methodology": "Most people would make each tool call a separate payment transaction; instead, create a session-based prepaid balance where the server deducts costs in-memory per call and settles a single aggregated transaction at the end; because Nano's feelessness makes aggregation invisible and eliminates per-call latency and agent-side payment logic.",
+  "baseline": "The obvious answer is to implement F8 as described: an MCP server where an agent calls a tool, sends a Nano transaction to the server's address, waits for confirmation, then receives the result. Each call is a separate payment transaction.",
+  "error": null,
+  "n": 35
+ },
+ {
+  "feature": "F8",
+  "angle": 1,
+  "answer": "Introduce a 'Signed Payment Envelope' parameter to every tool call. The agent includes: {txHash, requestId, signature, amount}. The signature is over (requestId, toolName, argsHash, amount) using the Nano private key. Server verifies signature, checks requestId uniqueness, then queries rpc.nano.to for txHash, waits up to 1 second for confirmation, confirms amount matches, and executes the tool. Returns result with a receipt. Idempotency via requestId prevents replay. This makes the pay-per-call flow deterministic and programmatically controllable because the agent builds the envelope offline and the server processes payment+execution atomically.",
+  "methodology": "Most people would have the agent pay externally before calling a tool, relying on balance checks; instead, embed a signed payment proof directly into the tool call’s parameters, with a unique request ID and server-side verification against the ledger, because that makes the payment atomic, idempotent, and automatically verifiable by a program.",
+  "baseline": "Implement a separate payment step where the agent sends Nano to the server's address, then calls the tool, and the server checks its balance to verify payment.",
+  "error": null,
+  "n": 36
+ },
+ {
+  "feature": "F8",
+  "angle": 2,
+  "answer": "Implement a tool schema that includes a 'payment' parameter: the agent computes a deterministic fee from the tool name and inputs, broadcasts a Nano transaction to the server's public key (via rpc.nano.to), and passes the tx hash in the call. The server validates the tx on-chain (instant confirmation), executes the tool, and returns the result—all within one HTTP request. This eliminates the payment round-trip and makes the flow atomic and MCP-native.",
+  "methodology": "Most people would force a separate payment round-trip before execution; instead we embed the payment proof directly into the tool call as a signed Nano transaction hash, because Nano's instant and feeless settlement lets the server verify it in the same request and respond immediately, making the pay-per-call feel like a single native tool invocation.",
+  "baseline": "The obvious answer is a two-step flow: agent calls a tool, server responds with a payment request, agent sends Nano, then calls the tool again to get the result.",
+  "error": null,
+  "n": 37
+ },
+ {
+  "feature": "F8",
+  "angle": 3,
+  "answer": "Tool name: NanoCall. Core loop: (1) Agent creates a signed Nano send block from its wallet to the server's address, with the fee amount as the amount. (2) Agent calls MCP tool 'NanoCall' with that raw block hex plus the desired tool name and arguments. (3) Server validates the block signature, checks destination/amount equals the fee, broadcasts it via rpc.nano.to, and waits for consensus (≈1s). (4) On confirmation, server executes the requested tool and returns its output; otherwise returns payment error. This eliminates separate addresses or pre-payment steps, making pay-per-call a single MCP invocation.",
+  "methodology": "Most people separate payment from tool call; instead embed the signed Nano send block as an argument to the tool call itself, letting the server broadcast and verify it during the same request; because Nano is instant, feeless, and signed blocks can be broadcast by any party, this makes the payment native and atomic.",
+  "baseline": "A two-step flow: agent first sends Nano to a server address, then calls a tool; server checks the ledger for that payment before executing.",
+  "error": null,
+  "n": 38
+ },
+ {
+  "feature": "F8",
+  "angle": 4,
+  "answer": "Idea: 'Nano-Embedded Payment Tool Calls' – Each MCP tool call includes a `payment` param: a signed Nano block (from the agent's seed) destined to a server address derived from a hash of the tool name + input. The block's work field is computed from that hash, binding payment to the exact call. The server instantly verifies the block on rpc.nano.to, then executes the tool and returns the result. This eliminates separate payment round-trips and prevents replay, making pay-per-call feel like a native MCP feature.",
+  "methodology": "Most people separate payment from tool execution; instead we embed a signed Nano payment block directly inside the tool call parameters, and verify it on rpc.nano.to before executing, because Nano's feeless instant finality makes payment and response atomic in a single round-trip.",
+  "baseline": "A separate payment step: agent sends XNO to server, waits for confirmation, then invokes the MCP tool.",
+  "error": null,
+  "n": 39
+ },
+ {
+  "feature": "F9",
+  "angle": 0,
+  "answer": "Name: On-chain chain-locking. Mechanism: SDK generates a dedicated Nano account per client. For each call, agent creates a send block to the server address; the block’s 'previous' field must equal the current head of that account on the node. The MCP server, via rpc.nano.to, checks that the block’s previous matches the node’s confirmed frontier before servicing. Since Nano only confirms one block from a given previous, a retry reusing an old block (same previous) is rejected by the node, and a new block requires a new payment. The node’s own consensus guarantees exactly-once. Beats F9: no idempotency store, no manual dedup logic, relies on the immutable ledger—simpler, safer, and naturally h",
+  "methodology": "Most people store idempotency keys in a database; instead we leverage Nano’s block lattice: each payment must extend the account’s chain with the server verifying the block’s 'previous' equals the node’s confirmed frontier, because Nano’s consensus atomicity means only one block per previous can exist—so any retry or replay becomes invalid automatically, without extra server state.",
+  "baseline": "Implement idempotency keys: each call gets a unique nonce, server stores it, and checks duplicates on every request to reject retries or replayed proofs.",
+  "error": null,
+  "n": 40
+ },
+ {
+  "feature": "F9",
+  "angle": 1,
+  "answer": "Generate a unique payment address per call: the MCP server creates a new keypair (seed + nonce) on each request, returns the address to the client with a `call_id`. The client sends the exact XNO amount to that address. The server monitors the address's account history; once a confirmed transaction with the correct amount appears, it records the block hash in a database, processes the call, and caches the result. If the client retries the same call, it sends the same `call_id` and address; the server sees the address is already used and returns the cached response. For replay across different calls, the block hash is checked against the database—any submission of a block hash not tied to the",
+  "methodology": "Most people rely on a separate idempotency token; instead we derive a fresh one-time payment address for each call, and the Nano transaction's block hash becomes both the receipt and the idempotency key—since Nano's ledger is immutable, the server can verify on-chain that this block hash was created for this exact call and has not been used before, making replay detection a simple ledger lookup; because each address is used only once, any retry referencing the same address or block hash is automatically idempotent.",
+  "baseline": "Most people would add a server-side idempotency key: the client sends a unique UUID with the payment, and the server stores that UUID to prevent double processing. However, if the payment proof (e.g., a transaction hash) is replayed without the original UUID, or if the UUID is lost, the server can't detect duplicate payments.",
+  "error": null,
+  "n": 41
+ },
+ {
+  "feature": "F9",
+  "angle": 2,
+  "answer": "Weakness: Replaying a valid proof (tx hash) or retrying with the same payment can double-execute. Fix: Embed a 64-bit nonce from an HMAC counter (seed, request_index) into the payment's raw amount: total = base_fee_raw + nonce. The server subtracts base_fee, extracts nonce, and checks its own atomic 'seen_nonce' store before executing. If nonce already used, reject with 409. This binds each fee to exactly one request, requires no shared tamper-proof state (only a local set), and works on Nano's single-address receive. Nonces are deterministic for the agent, so retries use the same nonce and get rejected after first success, while fresh calls get fresh nonces.",
+  "methodology": "Most people track transaction hashes after broadcast; instead embed a unique nonce in the payment amount in raw (fee + nonce) because the nonce is atomic, precomputable, and eliminates race conditions.",
+  "baseline": "Track used transaction hashes in a database and reject duplicates.",
+  "error": null,
+  "n": 42
+ },
+ {
+  "feature": "F9",
+  "angle": 3,
+  "answer": "Tool: PayOnce — a replay-safe payment layer for Nano-MCP.\n\nCore loop:\n1. Client derives a unique destination account from the call ID: `addr = deriveHmac256(seed, callID)`. This address is deterministically generated, so only this call can use it.\n2. Client sends the exact fee to `addr` (feeless, instant).\n3. PayOnce (server side) watches the Nano network for an incoming payment to `addr`. On confirmation (under a second), it verifies the amount and then spends the entire balance from `addr` to a public blackhole address (e.g., `nano_111...`). This atomic 'consume' permanently zeroes the address.\n4. The server processes the API call and returns the result.\n\nReplay impossible: any retry with ",
+  "methodology": "Most people would keep a stateful nonce registry on the server because they think of replay prevention as a filter; instead we use Nano's feeless, instant finality to turn each payment into a self-destructing one-time address, because the blockchain itself becomes the idempotency guard and no server state is needed.",
+  "baseline": "Use a unique request ID (nonce) generated by the client and store a list of already-used IDs on the server; reject any request whose ID has been seen before.",
+  "error": null,
+  "n": 43
+ },
+ {
+  "feature": "F9",
+  "angle": 4,
+  "answer": "Nano-Paychain: The agent generates a hash chain (H0, H1, H2...Hn) where H_i = SHA256(H_{i-1}) and H0 is shared with the MCP server during setup. For each pay-per-call, the agent sends: (1) a Nano transaction to the server's address for the exact fee, and (2) an HTTP request containing the next unused hash (H_k) and the call parameters. The server, after confirming the Nano transaction via rpc.nano.to, checks that SHA256(H_k) == H_{k-1} (the last used hash). If valid, it executes the tool exactly once, stores H_k as the new last, and responds. Any replay of an older hash fails the hash-chain check; a duplicate with the same H_k is rejected because it's already spent. The chain provides natura",
+  "methodology": "Most people rely on a server-side random-nonce store; instead we pre-generate a cryptographic hash chain (Lamport/S-Key) where each call uses the next hash as an unforgeable, ordered, one-time payment proof, because each hash can only be used once and the next hash cannot be derived without the original seed, giving replay and idempotency without a centralized nonce database.",
+  "baseline": "Use a random nonce (UUID) generated by the agent for each call, stored in a server-side deduplication cache to reject repeats.",
+  "error": null,
+  "n": 44
+ },
+ {
+  "feature": "F10",
+  "angle": 0,
+  "answer": "Name: XNOChannel\nMechanism: Agent opens a channel by sending an on-chain transaction that locks a deposit of XNO into a dedicated channel account. For each API call, the agent signs a balance commitment (a message reducing the channel balance by the call price). The MCP server verifies the signature, grants access instantly, and records the commitment. At session close, the agent signs a final commitment reflecting the total owed to the server and the remainder back to the agent; the server broadcasts a single, feeless settlement transaction that atomically distributes funds. No per-call on-chain transaction or finality wait is needed. This beats F10 by eliminating per-call settlement latenc",
+  "methodology": "Most people optimize per-call settlement; instead, adopt a state channel with a single on-chain deposit and off-chain signed balance commitments; because it removes per-call finality wait, reduces on-chain load, and leverages Nano's feeless nature for instant, secure micro-payments.",
+  "baseline": "Use proof-of-payment where the agent sends a signed transaction, the server grants access immediately, and then settles on-chain after confirmation.",
+  "error": null,
+  "n": 45
+ },
+ {
+  "feature": "F10",
+  "angle": 1,
+  "answer": "Signed Transaction Grant: The agent constructs a Nano block sending the fee to the server address, with the link field containing a server-issued nonce (hash of request ID). The agent signs the block but does not broadcast it, and sends the signed block. The server verifies: signature, amount, destination, nonce, and that the block's previous hash matches the account's current frontier (via RPC). If valid, grant access immediately and then broadcast the signed block. Since the block references the current frontier, any conflicting spend becomes invalid; the server's broadcast is guaranteed to settle. This deterministic verification and controlled broadcasting make the process reproducible an",
+  "methodology": "Most people wait for finality; instead, accept a signed but unconfirmed transaction as proof because it cryptographically commits the account state and can be broadcast by the server atomically, eliminating double-spend.",
+  "baseline": "Wait for on-chain confirmation before granting access.",
+  "error": null,
+  "n": 46
+ },
+ {
+  "feature": "F10",
+  "angle": 2,
+  "answer": "Weakness: proof-of-payment can be faked (agent claims payment without broadcasting) or double-spent (agent sends a conflicting block after access is granted). Fix: use 'sign-and-reveal with server broadcast'. The agent signs a valid Nano block (paying the server) but does not broadcast it; the server receives the signed block, verifies via rpc.nano.to that it references the account's current frontier and that signature/work are valid, then immediately grants API access and broadcasts the block itself. Because Nano's chain requires each block to reference the previous frontier, once the server broadcasts that block, the agent cannot create a competing valid block—any other block would be a lo",
+  "methodology": "Most people wait for block confirmation before granting access; instead we accept a signed but unbroadcasted transaction and have the server broadcast it, because this gives cryptographic proof of payment and lets the server finalize it, preventing double-spends.",
+  "baseline": "The biggest weakness is that proof-of-payment can be forged or double-spent; the obvious fix is to wait for on-chain confirmation, which blocks the agent.",
+  "error": null,
+  "n": 47
+ },
+ {
+  "feature": "F10",
+  "angle": 3,
+  "answer": "Tool: NanoLatch. Core loop: (1) Agent submits a Nano transfer to rpc.nano.to with amount + tool ID, gets block hash. (2) nano-mcp immediately validates the signed block data (signature, amount, destination), mints a 30-second Latch JWT with pending_settle=true. (3) Agent calls any MCP tool using that JWT; server grants access without waiting for confirmation. (4) Background worker polls rpc.nano.to until the block is confirmed; if invalid/double-spent, the JWT is revoked and the agent loses its optimistic credit. (5) Multiple small calls are batched and settled in one on-chain ledger update, so access latency is ~0 and Nano remains feeless. This generalises F10: any MCP tool becomes an optim",
+  "methodology": "Most people gate on RPC confirmation before invoking tools; instead issue a short-lived access token immediately from the signed payment block and settle asynchronously; because Nano finality is fast but not instant, and optimistic grant hides network/verifier latency while still being slashable if the proof is invalid.",
+  "baseline": "A simple MCP plugin that calls rpc.nano.to, waits for confirmed payment, then lets the agent call the tool.",
+  "error": null,
+  "n": 48
+ },
+ {
+  "feature": "F10",
+  "angle": 4,
+  "answer": "Implement a <audit_rate>% probabilistic audit for instant access. On receipt of a signed payment tx, the server immediately computes an audit flag: `audit = (hash[:4] as uint32 % 100) < audit_rate`. If false, grant access right away and queue the tx for batched settlement (pending pool). If true, wait for full confirmation (e.g., 2 confirmations) before granting access. Every 10 seconds, settle pending pool by checking finality via rpc.nano.to; if any tx fails, revoke access and blacklist the seed. Default audit_rate=5%, dynamically adjustable (e.g., higher for large payments). This gives 95% of payments zero-latency access while maintaining a 5% mandatory on-chain check, preventing systemat",
+  "methodology": "Most people require full on-chain confirmation before granting access; instead we use probabilistic auditing from financial sampling to grant access instantly on proof-of-payment, with random deferred verification, because Nano's feeless speed and near-instant finality make it safe to trust most transactions while keeping a small verifiable audit rate.",
+  "baseline": "Wait for on-chain confirmation of the payment transaction before granting access to the agent.",
+  "error": null,
+  "n": 49
+ }
+]

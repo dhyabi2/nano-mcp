@@ -1,0 +1,12 @@
+[
+{"id":"F1","name":"Feeless instant pay-per-call","text":"Current pay-per-call for AI agents (x402/USDC) routes every call through a trusted verifier that checks the stablecoin payment and releases the HTTP 402; tiny charges get batched because fees make micro-calls uneconomic."},
+{"id":"F2","name":"On-chain payment verification","text":"The service must confirm a payment before serving; existing solutions trust an interposed verifier or an API key shared out of band instead of the chain itself."},
+{"id":"F3","name":"Agent self-custody wallet SDK","text":"An agent holds its own Nano keys (seed-derived address) and transacts via rpc.nano.to; today SDKs are library-specific and require knowing Nano crypto (blake2b hashing, ed25519 signing, proof-of-work)."},
+{"id":"F4","name":"Service-side price and credit tools","text":"A service that sells per-call API access needs to set a price, see incoming falls, credit/cancel; current MCP pay servers put the settlement layer outside the server."},
+{"id":"F5","name":"Program-reproducible payment flow","text":"End-to-end pay-per-call must be reproducible by a script/agent with no human step; current flows assume a wallet GUI or a manual approval."},
+{"id":"F6","name":"No-node instant usability","text":"Nano's weakness is that transacting needs signing + proof-of-work and usually a synced node; the fix should let any agent hold and pay from a single HTTP RPC endpoint."},
+{"id":"F7","name":"Borrow a mechanism from another field","text":"Design a per-call payment scheme by combining Nano settlement with a mechanism from another field (e.g. control theory, ledgers, token buckets)."},
+{"id":"F8","name":"MCP-native payment ergonomics","text":"The pay-per-call flow should feel native inside a Model Context Protocol server: an agent calls a tool, pays in Nano, gets the answer."},
+{"id":"F9","name":"Replay and idempotency safety","text":"Per-call payments must not be double-spent by retries or replayed proofs; each call is paid exactly once."},
+{"id":"F10","name":"Proof-of-payment grant + on-chain settle","text":"Grant access fast on proof, then settle on-chain, so the agent is not blocked on finality."}
+]

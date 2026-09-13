@@ -1,0 +1,77 @@
+{
+ "goal": "nano-mcp: an MCP server + small SDK so any AI agent can hold XNO and pay per API call in Nano, through rpc.nano.to",
+ "repo": "/root/nano-agent/nano-mcp",
+ "created": "2026-09-13T23:35:06+00:00",
+ "base_commit": "HEAD",
+ "laws": [
+  {
+   "id": "L0",
+   "block": 2,
+   "statement": "Seed-based address derivation matches the official Nano example.",
+   "test": "nano_sdk/tests reference the docs.nano.org example seed and assert the derived nano_ address equals it.",
+   "minted": "2026-09-13T23:51:59+00:00"
+  },
+  {
+   "id": "L1",
+   "block": 2,
+   "statement": "Live balance/history reads work through rpc.nano.to without a local node.",
+   "test": "a test posts account_balance to NANO_RPC_URL for a known public account and asserts a numeric raw balance returns.",
+   "minted": "2026-09-13T23:51:59+00:00"
+  },
+  {
+   "id": "L2",
+   "block": 3,
+   "statement": "A signed send block is accepted and confirms on-chain via rpc.nano.to.",
+   "test": "nano_sdk test sends a tiny self-transfer and asserts rpc process returns a block hash later present in account_history.",
+   "minted": "2026-09-13T23:51:59+00:00"
+  },
+  {
+   "id": "L3",
+   "block": 3,
+   "statement": "The SDK refuses to send more than the wallet holds and never exceeds the 0.01 XNO/day outbound cap.",
+   "test": "unit test calls send with amount > balance and with an amount that would breach the daily cap; both raise.",
+   "minted": "2026-09-13T23:51:59+00:00"
+  },
+  {
+   "id": "L4",
+   "block": 4,
+   "statement": "The server derives a distinct, reproducible one-time payment address per request_id.",
+   "test": "test calls the derivation with two request_ids and asserts addresses differ, and repeats one id asserting the same address.",
+   "minted": "2026-09-13T23:52:00+00:00"
+  },
+  {
+   "id": "L5",
+   "block": 4,
+   "statement": "verify_payment(request_id) approves only after the on-chain send to that address is seen, exactly once.",
+   "test": "test drives a send to a derived address then verify_payment returns approved; a second verify_payment for the same id returns spent/not-approved.",
+   "minted": "2026-09-13T23:52:00+00:00"
+  },
+  {
+   "id": "L6",
+   "block": 5,
+   "statement": "An end-to-end pay-per-call succeeds and is replay-safe (single execution).",
+   "test": "probe scenario has one agent pay one service via the SDK and MCP server, then re-calls with the same request_id and observes no double execution.",
+   "minted": "2026-09-13T23:52:00+00:00"
+  }
+ ],
+ "blocks": {
+  "2": {
+   "status": "pending",
+   "attempts": []
+  },
+  "3": {
+   "status": "pending",
+   "attempts": []
+  },
+  "4": {
+   "status": "pending",
+   "attempts": []
+  },
+  "5": {
+   "status": "pending",
+   "attempts": []
+  }
+ },
+ "deltas": [],
+ "probe": null
+}
