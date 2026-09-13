@@ -56,7 +56,7 @@
  ],
  "blocks": {
   "2": {
-   "status": "pending",
+   "status": "pass",
    "attempts": [
     {
      "kind": "verify",
@@ -91,6 +91,23 @@
       }
      ],
      "at": "2026-09-13T23:56:43+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": true,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-46 test_private_key_derivation_matches_official_vector asserts derive_private_key(DOCS_SEED, index=1) == DOCS_PRIV (docs.nano.org the-basics blake2b vector). tests/test_crypto.py:49-51 test_public_key_derivation_matches_docs_keyexpand asserts public_key(DOCS_PRIV_EXPAND) == DOCS_PUB_EXPAND (key_expand priv->pub). tests/test_crypto.py:54-56 test_address_matches_docs_keyexpand asserts address_from_public_key(DOCS_PUB_EXPAND) == DOCS_ADDR_EXPAND (key_expand pub->address). tests/test_crypto.py:59-61 test_address_encoding_matches_node asserts address_from_public_key matches NODE_PAIRS ground truth from rpc.nano.to account_key. tests/test_client.py:38-47 test_derived_account_agrees_with_node derives a random-seed account and asserts rpc.nano.to account_key returns the same public key; pytest output shows 'tests/test_client.py::test_derived_account_agrees_with_node PASSED [100%]'."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-28 test_live_balance_read calls client.account_balance('nano_1faucet...') and asserts raw.isdigit() and int(raw)>0. tests/test_client.py:32-34 test_live_history_read calls client.account_history and asserts len(history)>=1. pytest output shows 'tests/test_client.py::test_live_balance_read PASSED [ 50%]' and 'tests/test_client.py::test_live_history_read PASSED [ 75%]'."
+      }
+     ],
+     "at": "2026-09-13T23:57:27+00:00"
     }
    ]
   },
