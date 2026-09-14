@@ -45,3 +45,8 @@ def test_derived_account_agrees_with_node(client):
     acct = derive_account(seed, index=0)
     node_key = client.call(action="account_key", account=acct.address)["key"]
     assert node_key.lower() == acct.public_key.hex()
+    # ground-truth round-trip: converting the node's key back to an address with
+    # the SDK's own address_from_public_key must reproduce acct.address.
+    from nano_sdk.crypto import address_from_public_key
+
+    assert address_from_public_key(bytes.fromhex(node_key)) == acct.address

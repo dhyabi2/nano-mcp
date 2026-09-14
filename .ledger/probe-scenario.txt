@@ -1,14 +1,17 @@
-End-to-end pay-per-call probe for nano-mcp — final (block 16 close-out, L0..L23).
-Updated from the block-5 probe (which covered only L0-L7) to exercise every law
-through a DISTINCT component or variable, so one piece of evidence cannot count
-for two laws.
+End-to-end pay-per-call probe for nano-mcp — final (block 19 stage-gate-1, L0..L28).
+Updated from the block-16 close-out probe (which covered L0..L23) to exercise every
+law through a DISTINCT component or variable — including the REAL funded on-chain
+receive and paid call that closed L2 — so one piece of evidence cannot count for
+two laws.
 
 Scenario: one AI agent pays one service in Nano via the full stack — SDK derives
 and reads, buyer SDK signs a capped mandate send, the x402 exact-on-nano spec and
 reference implementation are drafted (P1, gated on human approval), the HTTP 402
 resource server + facilitator verify/settle on two independent RPCs exactly once,
-the MCP paidTool wrapper serves the protected result once, and the open-rail
-scorecard measures the Nano share from REAL nano-pulse journal evidence.
+the MCP paidTool wrapper serves the protected result once, the open-rail scorecard
+measures the Nano share from REAL nano-pulse journal evidence, AND (stage gate 1)
+the treasury received the owner's 10 XNO on-chain and made ONE real funded paid
+mainnet call through nano-mcp.
 
 Distinct component / variable per law:
   L0  crypto: tests/test_crypto.py seed->priv->pub->address vs docs.nano.org
@@ -16,8 +19,11 @@ Distinct component / variable per law:
       ground truth.
   L1  live read: tests/test_client.py test_live_balance_read posts account_balance
       to NANO_RPC_URL, asserts int(raw) > 0.
-  L2  live funded send: STUCK — no funded wallet; AGENTS forbids seeking funds;
-      recorded not faked (the signed-block hash/sig path is proven vs live chain).
+  L2  live funded send: CLOSED — block 19 made a real paid send from the funded
+      treasury (7806E530...22D763CB), confirmed on rpc.nano.to + rainstorm.city,
+      settling one nano-mcp paid tool exactly once (tests/test_stage_gate1.py
+      test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs +
+      tests/test_paidtool.py test_replay_is_refused_once).
   L3  send guards: tests/test_wallet.py send-over-balance and over-daily-cap both
       raise (InsufficientBalance / DailyCapExceeded) with no broadcast.
   L4  one-time address: tests/test_payments.py two request_ids -> different
@@ -76,7 +82,26 @@ Distinct component / variable per law:
       nano_tx rows (external payer only) from the REAL nano-pulse evidence DB
       (mode=ro, network-free); build/verify --journal-db reproduces published.json
       exactly; own accounts never written and add zero to the share.
+  L24 Wallet.receive: tests/test_wallet.py receive builds+signs a valid state
+      receive block (subtype=receive, link=source, balance=old+received) and picks
+      the right PoW work root (account public key for an open block); docs receive
+      vector reproduces byte-for-byte.
+  L25 gate-2 clean public repo: /root/work/nano-mcp-public single-commit snapshot;
+      fresh remote clone secret scan CLEAN (0 real secrets, 0 .db/.env/.key);
+      private repo never flipped public.
+  L26 gate-2 wheel+offline tests: dist/nano_mcp-0.1.0-*.whl builds from the
+      snapshot; pytest -m 'not network' passes 123/123 in the release venv.
+  L27 treasury funded on-chain: the owner's 10 XNO received (open block
+      C99C1BC1...D63B2E9) whose receive block and source link B42D3513... are both
+      witnessed on two independent RPCs (tests/test_stage_gate1.py
+      test_l27_receive_*).
+  L28 real funded paid call: one nano-mcp paid tool bought on mainnet from the
+      funded treasury — 0.0001 XNO send 7806E530... to one-time payTo, verified on
+      two independent RPCs, settled exactly once, replay refused
+      (tests/test_stage_gate1.py + tests/test_paidtool.py test_replay_is_refused_once).
 
-Honest scope: no real XNO moves (no funded wallet, funds forbidden — L2/L3 remain
-the recorded STUCK). Every other law is proven by a quoted assertion from the 143
-tests run this close-out; the probe wires them each through a distinct component.
+Honest scope: the two on-chain moves in this block are Rai's OWN funded test
+traffic — funding received is never goal evidence and Rai's own accounts add zero
+to the scorecard share, so nothing here claims adoption. Every law is proven by a
+quoted assertion from the 150 tests run this block; the probe wires each through a
+distinct component.

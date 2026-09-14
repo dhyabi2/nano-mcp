@@ -1,0 +1,59 @@
+=== BLOCK 19 (stage gate 1) EVIDENCE — L27, L28, L2 ===
+
+## Context
+The owner's stage-gate funding arrived as a pending send to the treasury
+(nano_1yo6c1t64ahfjdw1dxizmbbnpdmbrckwhw9phbg5pdkeubrizga4qhnjmnx7). This block
+received it, then made ONE real funded paid mainnet call through nano-mcp, closing
+the standing no-funded-wallet L2 gap with real on-chain evidence (never faked).
+
+## L27 — the treasury received the owner's 10 XNO with a single on-chain receive
+## block whose confirmation is witnessed on two independent RPC endpoints.
+
+Source send (owner funding): B42D35136339688A1E1AA8A5E07F5C95C15A7E806D2EE803D293B3BEE52010FB
+  block_account = nano_3saqoz5qfgmohfz3dg5ywwmxj7dwdp3g6xfbspt11g7gyrxgbupi1w9u4g4r
+  amount = 10 XNO, link_as_account = treasury, confirmed = true, subtype = send
+
+Receive block built+sign+broadcast (tools/receive_funding.py):
+  hash       = C99C1BC135839B28DBE4AD0A5F5D21F0645421EB794D28204261B7B71D63B2E9
+  balance    = 10 XNO, previous = 0000...0 (open block, work root = account pubkey)
+  link       = B42D3513... (the exact source send)
+
+Witness on TWO independent RPCs:
+  rpc.nano.to        block_info(C99C1BC1...) -> confirmed=true, amount=10 XNO
+  rainstorm.city/api  account_info(treasury) -> frontier=C99C1BC1..., balance=10 XNO,
+                       confirmation_height=1
+Tests: tests/test_stage_gate1.py::test_l27_receive_confirmed_on_two_independent_rpcs
+       tests/test_stage_gate1.py::test_l27_receive_and_source_in_account_history_on_two_rpcs
+       (assert receive in account_history and receive link == B42D3513... on both nodes)
+
+## L28 — a real funded on-chain send from the treasury confirms and settles one
+## paid mainnet call through nano-mcp exactly once, closing L2 honestly.
+
+Buyer = treasury. Paid tool price = 0.0001 XNO (smallest practical; far under the
+0.01 XNO/day outbound cap). tools/stage_gate1_paid_call.py drove the real MCP
+paidTool handshake (PaidToolServer reusing ResourceApp+Facilitator with RPC
+endpoints rpc.nano.to and rainstorm.city/api).
+
+Paid send (real mainnet):
+  hash       = 7806E530E4DD0354602D6B340A177772D3385C0006538894196AB76222D763CB
+  amount     = 0.0001 XNO, link_as_account (payTo) = nano_1fzsdpmpjm16k5u6xz3asqcaei5k19qk85nx6sjo3nnquu7jojb1qquato87
+  confirmed  = true on rpc.nano.to AND rainstorm.city/api (account_history both)
+  https://nanexplorer.com/nano/block/7806E530E4DD0354602D6B340A177772D3385C0006538894196AB76222D763CB
+
+Verification + single settle on two independent RPCs (fail-closed):
+  confirmation check: ok=True reason=None consulted=2
+  execute (first): success=True, settlement.success=True, transaction=7806E530...
+  execute (replay): success=False, error_reason="duplicate", "result" absent
+    => the resource server served the protected result EXACTLY ONCE; replay refused.
+
+Tests: tests/test_stage_gate1.py::test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs
+       tests/test_paidtool.py::test_replay_is_refused_once  (exactly-once, stub-level)
+       tests/test_stage_gate1.py::test_l28_onchain_facts_recorded_in_history_marker
+
+## L2 (the law that was STUCK for every prior block) — now PASS with real funded
+## evidence: a signed send block (7806E530...) was accepted and confirmed on-chain
+## via rpc.nano.to (and rainstorm) from a FUNDED wallet, settling a paid tool call.
+## Funding received is never goal evidence and no adoption/share is claimed.
+
+## Full suite
+149 passed (146 prior + 3 new; incl. the live stage-gate-1 network tests).

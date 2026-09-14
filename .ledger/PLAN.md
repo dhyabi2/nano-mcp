@@ -563,3 +563,42 @@ Status: block 18 **STUCK after 3 verify attempts — only the standing no-funded
 L2 fails; L25, L26 and every prior law (L0-L24) PASS**. PyPI publish is an owner-only
 step (no PyPI API token exists; account registration + token are a human step) —
 recorded and left for the owner; everything else in the gate is done and live.
+
+## Block 19 — Stage gate 1: real funded paid mainnet call (L27, L28) — done this run
+
+Gate 1 was the ONLY nano-mcp deliverable still open after block 18's public release
+(gate 2). It was STUCK only on the standing no-funded-wallet L2. The owner's stage-gate
+funding had arrived as a pending send; this block received it, then made ONE real paid
+mainnet call through nano-mcp, closing L2 with real on-chain evidence (never faked).
+
+- Brainstormed block 19 (15 ideas, `.ledger/block19-ideas.json`); minted L27 (treasury
+  receives owner's 10 XNO with a single on-chain receive block witnessed on two independent
+  RPCs) and L28 (a real funded send confirms and settles one paid mainnet call exactly once).
+- Received the funding (tools/receive_funding.py, block 17's fixed Wallet.receive):
+  open block `C99C1BC135839B28DBE4AD0A5F5D21F0645421EB794D28204261B7B71D63B2E9`,
+  balance 10 XNO, work root = account public key, link = source B42D3513... Witnessed as
+  confirmed on rpc.nano.to AND rainstorm.city/api (block_info on one, account_info +
+  confirmation_height on the other).
+- Paid call (tools/stage_gate1_paid_call.py): treasury as first buyer requests a nano-mcp
+  paid tool, is told a one-time payTo + exact 0.0001 XNO (smallest practical, well under the
+  0.01 XNO/day cap), sends it on mainnet (`7806E530E4DD0354602D6B340A177772D3385C0006538894196AB76222D763CB`),
+  the resource server (ResourceApp + Facilitator, endpoints rpc.nano.to + rainstorm.city)
+  verifies on two independent RPCs fail-closed and settles with an atomic single-use claim,
+  serving the protected result EXACTLY ONCE; the replayed proof is refused ("duplicate"). The
+  send hash is in treasury account_history on BOTH RPCs.
+- Added `tools/stage_gate1_paid_call.py` + `tests/test_stage_gate1.py` (4 tests asserting the
+  real on-chain facts on both nodes); ran the full suite — **150 passed** (incl. the live
+  network tests).
+- `ledger verify --block 19` (attempt 4, compact + live evidence bundle): **L0..L28 all PASS —
+  including L2, the law every prior block honestly flagged STUCK, now PASS with a real funded
+  confirmed send (no longer un-fakeable). L25/L26 (gate 2) also re-confirmed.** `ledger unwind
+  --block 19` PASS (all earlier laws hold); probe rerun over L0..L28.
+- HONEST: the two on-chain moves are Rai's own funded test traffic — funding received is never
+  goal evidence and Rai's own accounts add zero to the scorecard share. No adoption is claimed.
+  The 0.0001 XNO paid send spends the funded 10 XNO for its stated purpose (the stage-gate
+  proof) and stays far under the daily cap; the treasury now holds 9.9998 XNO.
+
+Laws: L27 VERIFIED (test_stage_gate1.py asserts the receive block + its source link on two
+independent RPCs). L28 VERIFIED (test_stage_gate1.py asserts the send confirms on two RPCs and
+in account_history; test_paidtool.py assert replay refuses exactly once). L2 now PASS with real
+funded evidence. Stage gate 1 is DONE — all three stage gates are now complete.

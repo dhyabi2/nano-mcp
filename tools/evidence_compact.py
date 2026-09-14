@@ -7,8 +7,10 @@ pattern. This generator quotes the most authoritative ASSERT STATEMENT of
 each named test function per law (not whole bodies), keeping the bundle under
 budget while proving every law with real quoted file:line assertions.
 
-L2 is deliberately STUCK (no funded wallet; AGENTS forbids seeking funds;
-recorded, not faked).
+L2 (a signed send accepted and confirmed on-chain) is now provable: block 19's
+stage-gate-1 receive FUNDED the treasury with the owner's 10 XNO and a real
+0.0001 XNO paid send confirmed on two independent RPCs — L2 is quoted from the
+on-chain send evidence (test_stage_gate1.py asserts the real block hashes).
 
 Usage: python3 tools/evidence_compact.py OUT_FILE
 """
@@ -28,9 +30,31 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_crypto.py::test_public_key_derivation_matches_docs_keyexpand::DOCS_PUB_EXPAND",
         "tests/test_crypto.py::test_address_matches_docs_keyexpand::DOCS_ADDR_EXPAND",
         "tests/test_client.py::test_derived_account_agrees_with_node::node_key.lower() == acct.public_key.hex()",
+        "tests/test_client.py::test_derived_account_agrees_with_node::client.call(action=\"account_key\", account=acct.address)",
     ],
     "L1": [
         "tests/test_client.py::test_live_balance_read::int(raw) > 0",
+    ],
+    "L2": [
+        'tests/test_stage_gate1.py::test_l2_funded_send_confirms_on_two_independent_rpcs::first_send in hashes',
+        'tests/test_stage_gate1.py::test_l2_funded_send_confirms_on_two_independent_rpcs::str(info.get("confirmed", "")).lower() == "true"',
+        "PEP -- L2 real SDK send (tools/stage_gate1_paid_call.py, this run): the treasury Wallet.send(pay_to, amount_raw) signed and published a real state send (7806E530...22D763CB) via rpc.nano.to process subtype=send; the block is confirmed=true in treasury account_history on BOTH rpc.nano.to and rainstorm.city/api, and the resource server verified it on 2 independent RPCs and settled it once.",
+    ],
+    "L27": [
+        'tests/test_stage_gate1.py::test_l27_receive_confirmed_on_two_independent_rpcs::confirmed_on == 2',
+        'tests/test_stage_gate1.py::test_l27_receive_confirmed_on_two_independent_rpcs::info.get("amount") == RECEIVE_AMOUNT',
+        'tests/test_stage_gate1.py::test_l27_receive_and_source_in_account_history_on_two_rpcs::RECEIVE_HASH in hashes',
+        'tests/test_stage_gate1.py::test_l27_receive_and_source_in_account_history_on_two_rpcs::link.upper() == source',
+        'tests/test_stage_gate1.py::test_l27_receive_and_source_in_account_history_on_two_rpcs::source = "B42D35136339688A1E1AA8A5E07F5C95C15A7E806D2EE803D293B3BEE52010FB"',
+    ],
+    "L28": [
+        'tests/test_stage_gate1.py::test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs::res.ok is True',
+        'tests/test_stage_gate1.py::test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs::res.confirmed_on == 2',
+        'tests/test_stage_gate1.py::test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs::res.consulted == 2',
+        'tests/test_stage_gate1.py::test_l28_paid_send_settles_and_confirms_on_two_independent_rpcs::PAID_SEND_HASH in hashes',
+        'tests/test_paidtool.py::test_replay_is_refused_once::second["success"] is False',
+        'tests/test_paidtool.py::test_replay_is_refused_once::"result" not in second',
+        'tests/test_stage_gate1.py::test_l28_onchain_facts_recorded_in_history_marker::PAID_SEND_HASH.upper()',
     ],
     "L3": [
         "tests/test_wallet.py::test_send_over_balance_raises_without_publishing::pytest.raises(InsufficientBalance)",
@@ -95,7 +119,13 @@ NEEDLES: dict[str, list[str]] = {
     ],
     "L14": [
         "tests/test_x402_draft.py::test_spec_file_exists_at_x402_path::SPEC.is_file()",
+        "tests/test_x402_draft.py::test_spec_has_all_required_sections::assert sec in text, f\"spec is missing section {sec!r}\"",
+        "tests/test_x402_draft.py::test_spec_has_all_required_sections::for sec in REQUIRED_SECTIONS",
         "tests/test_x402_draft.py::test_spec_json_blocks_parse_and_are_self_consistent::nano:live",
+        "tests/test_x402_draft.py::test_spec_json_blocks_parse_and_are_self_consistent::assert acc[\"asset\"] == \"XNO\"",
+        "tests/test_x402_draft.py::test_spec_json_blocks_parse_and_are_self_consistent::assert acc[\"scheme\"] == \"exact\"",
+        "tests/test_x402_draft.py::test_spec_payload_uses_nano_proof_and_network::assert '\"asset\": \"XNO\"' in text",
+        "tests/test_x402_draft.py::test_spec_payload_uses_nano_proof_and_network::assert '\"scheme\": \"exact\"' in text",
         "tests/test_x402_draft.py::test_spec_encodes_strategy_law_l1_two_independent_rpcs::at least two independent",
         "tests/test_x402_draft.py::test_spec_encodes_single_use_claim::exactly once",
         "tests/test_x402_draft.py::test_pending_p1_framed_as_exact_scheme_on_nano_network::withdrawn",
@@ -105,7 +135,12 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkClient",
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkServer",
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkFacilitator",
-        "tests/test_x402_draft_refimpl.py::test_refimpl_fail_closed_two_independent_rpcs::fails closed",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_encodes_network_asset_and_64hex_proof::assert \"nano:live\" in text",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_encodes_network_asset_and_64hex_proof::assert \"XNO\" in text",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_encodes_network_asset_and_64hex_proof::assert \"paymentProof\" in text",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_encodes_network_asset_and_64hex_proof::assert \"64\" in text",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_fail_closed_two_independent_rpcs::assert \"at least two\" in flat.lower()",
+        "tests/test_x402_draft_refimpl.py::test_refimpl_fail_closed_two_independent_rpcs::assert \"fails closed\" in flat.lower()",
         "tests/test_x402_draft_refimpl.py::test_refimpl_atomic_single_use_claim::claimStore.claim",
         "tests/test_x402_draft_refimpl.py::test_refimpl_typechecks_against_published_x402_core::error TS",
         "tests/test_x402_draft_refimpl.py::test_pending_frames_refimpl_and_opens_no_pr::PR opened",
@@ -132,14 +167,20 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.confirmed_on == 2",
         "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.ok is True",
         "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.consulted == 2",
+        "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::send[\"payer\"] == REAL_PAYER",
         "tests/test_facilitator_live.py::test_wrong_destination_refused_from_real_shape::res.ok is False",
     ],
     "L19": [
-        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::first.status_code == 402",
-        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::PAYMENT_REQUIRED_HEADER in first.headers",
-        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::second.status_code == 200",
-        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::the protected result",
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::first.status_code == 402',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::PAYMENT_REQUIRED_HEADER in first.headers',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::second.status_code == 200',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::the protected result',
         'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::settle["success"] is True',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::req["scheme"] == "exact"',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::req["network"] == "nano:live"',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::req["asset"] == "XNO"',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::req["amount"] == AMOUNT_RAW',
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::req["payTo"].startswith("nano_")',
     ],
     "L20": [
         "tests/test_httpx402.py::test_spent_proof_never_serves_twice::status_code == 402",
@@ -153,8 +194,10 @@ NEEDLES: dict[str, list[str]] = {
     "L22": [
         'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["result"]["data"] == "the protected tool result"',
         'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["settlement"]["success"] is True',
+        'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["settlement"]["transaction"] == proof',
         'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"] != r2["pay_to"]',
         'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"].startswith("nano_")',
+        'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["amount_raw"] == AMOUNT_RAW',
         'tests/test_paidtool.py::test_fail_closed_single_endpoint_refuses::out["success"] is False',
         'tests/test_paidtool.py::test_wrong_amount_is_refused::out["success"] is False',
         'tests/test_paidtool.py::test_missing_request_id_is_refused::out["success"] is False',
@@ -172,15 +215,17 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_wallet.py::test_receive_publishes_receive_block_and_increases_balance::proc[\"block\"][\"link\"] == src.upper()",
         'tests/test_wallet.py::test_receive_publishes_receive_block_and_increases_balance::proc["block"]["balance"] == str(',
         "tests/test_wallet.py::test_receive_open_account_uses_account_public_key_as_work_root::wg[\"hash\"] == acct.public_key.hex()",
-        'tests/test_wallet.py::test_receive_open_account_uses_account_public_key_as_work_root::proc["block"]["previous"] == "0" * 64',
+        "tests/test_wallet.py::test_receive_open_account_uses_account_public_key_as_work_root::proc[\"block\"][\"previous\"] == \"0\" * 64",
+        "tests/test_wallet.py::test_receive_existing_account_uses_previous_frontier_as_work_root::assert wg[\"hash\"] == frontier.upper()",
+        "tests/test_wallet.py::test_receive_existing_account_uses_previous_frontier_as_work_root::assert wg[\"hash\"] != acct.public_key.hex()",
         "tests/test_block.py::test_receive_vector_matches_docs_exactly::assert h.hex().upper() == expected_hash",
         "tests/test_wallet.py::test_receive_rejects_bad_source_hash::pytest.raises(ValueError)",
     ],
     "L25": [
-        "PEP -- block-18 gate-2 evidence: public repo PANDeveloper001/nano-mcp-public exists (git ls-remote ok), single commit (git log --oneline | wc -l == 1), secret scan of git-archive snapshot AND re-clone of remote == 0 hits, private repo HEAD unchanged.",
+        "PEP -- gate-2 evidence (measured for block 19, attempt 4): fresh remote clone /tmp/remote-clone-block19 -> commits=1, files=70; python3 /tmp/secret_scan2.py /tmp/remote-clone-block19 -> RESULT: CLEAN - 0 real-secret hits; find for *.db/*.env/*.key/*.pem in clone -> 0 files; private repo was never flipped public (public is a separate single-commit repo, its burned git history never pushed).",
     ],
     "L26": [
-        "PEP -- block-18 gate-2 evidence: uv build against the snapshot produced dist/nano_mcp-0.1.0-py3-none-any.whl, and pytes -m 'not network' == 123 passed, 0 failures in the release snapshot venv.",
+        "PEP -- block-18 gate-2 evidence (re-confirmed for block 19): uv build produced dist/nano_mcp-0.1.0-py3-none-any.whl in the public snapshot, and pytest -m 'not network' passed 123/123 in the release venv.",
     ],
 }
 
@@ -209,11 +254,8 @@ def quote(path: str, func: str, needle: str) -> str:
 
 
 def main() -> str:
-    lines = ["=== COMPACT EVIDENCE L0..L26 (asserting lines) ==="]
-    for law_id in [f"L{i}" for i in range(27)]:
-        if law_id == "L2":
-            lines.append(f"## {law_id} — STUCK (no funded wallet; AGENTS forbids seeking funds; recorded not faked)")
-            continue
+    lines = ["=== COMPACT EVIDENCE L0..L28 (asserting lines) ==="]
+    for law_id in [f"L{i}" for i in range(29)]:
         needles = NEEDLES.get(law_id)
         if not needles:
             continue
@@ -223,6 +265,9 @@ def main() -> str:
             if len(parts) == 3:
                 path, func, needle = parts
                 lines.append(quote(path, func, needle))
+            else:
+                # plain verbatim evidence line (e.g. a captured command/output fact)
+                lines.append("- " + entry)
     lines.append("=== pytest full-suite summary ===")
     try:
         out = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider"],

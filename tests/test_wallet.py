@@ -133,6 +133,27 @@ def test_receive_publishes_receive_block_and_increases_balance():
     assert w._sent_today() == 0
 
 
+def test_receive_existing_account_uses_previous_frontier_as_work_root():
+    """For an EXISTING account (non-zero frontier), the PoW work root must be the
+    previous frontier hash, NOT the account public key (per docs.nano.org)."""
+    from nano_sdk import derive_account
+
+    acct = derive_account(SEED, 0)
+    frontier = "CD" * 32
+    client = StubClient(balance_raw=int(nano_to_raw("0.1")), frontier=frontier)
+    client.pending_amount = int(nano_to_raw("0.5"))
+    w = Wallet(seed=SEED, client=client)
+    src = "AB" * 32
+    h, blk = w.receive(src)
+    assert h == client.process_result["hash"]
+    wg = [c for c in client.calls if c["action"] == "work_generate"][0]
+    # work root = the previous frontier hash for a non-open block
+    assert wg["hash"] == frontier.upper()
+    assert wg["hash"] != acct.public_key.hex()
+    proc = [c for c in client.calls if c["action"] == "process"][0]
+    assert proc["block"]["previous"] == frontier.upper()
+
+
 def test_receive_rejects_bad_source_hash():
     client = StubClient(balance_raw=int(nano_to_raw("0.001")))
     w = Wallet(seed=SEED, client=client)
