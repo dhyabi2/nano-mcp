@@ -115,6 +115,20 @@
    "statement": "P1's x402 exact-on-nano reference implementation draft is prepared and verified, ready to open only after human approval.",
    "test": "tests/test_x402_draft_refimpl.py passes: the draft TS package at draft/x402/typescript/packages/mechanisms/nano implements the SchemeNetworkClient/Server/Facilitator interfaces (type-checks with 'tsc --noEmit' against the published @x402/core, exercised via subprocess), encodes network=nano:live / asset=XNO / paymentProof 64-hex, fail-closed >=2-independent-RPC verification, an atomic single-use claim, and pending.md frames the reference-implementation contribution and opens no PR; full suite passes.",
    "minted": "2026-09-14T06:57:18+00:00"
+  },
+  {
+   "id": "L16",
+   "block": 12,
+   "statement": "The facilitator exposes /supported /verify /settle per the exact-on-nano spec and fails closed unless a proof confirms on at least two independent RPC endpoints.",
+   "test": "tests/test_facilitator.py: test_l16_facilitator_exposes_supported_verify_settle; test_l16_verify_confirms_on_two_independent_endpoints; test_l16_fail_closed_when_any_endpoint_errors; test_l16_refuses_less_than_two_endpoints; test_l16_http_get_supported; test_l16_http_post_verify_confirms_on_two_endpoints",
+   "minted": "2026-09-14T08:11:18+00:00"
+  },
+  {
+   "id": "L17",
+   "block": 12,
+   "statement": "Settle re-verifies on-chain then binds a proof to its request with an atomic single-use claim, so one proof settles exactly once.",
+   "test": "tests/test_facilitator.py: test_l17_settle_re_verifies_then_claims_atomically; test_l17_settle_never_trusts_prior_verify; test_l17_claim_store_persists_exactly_once_across_instances; test_l17_concurrent_settles_approve_exactly_once; test_l17_http_post_settle_exactly_once",
+   "minted": "2026-09-14T08:11:34+00:00"
   }
  ],
  "blocks": {
@@ -2245,6 +2259,10 @@
      "at": "2026-09-14T07:29:30+00:00"
     }
    ]
+  },
+  "12": {
+   "status": "pending",
+   "attempts": []
   }
  },
  "deltas": [

@@ -267,3 +267,39 @@ after human approval (VERIFIED: 8 spec-draft tests + consolidated full-suite run
   pending.md proposal awaiting human approval.
 
 Laws: L15 prepared and verified, ready to open only after human approval.
+
+## Block 12 — self-hostable x402 `exact`-on-`nano` facilitator (Python) — done this run
+- Honesty gap closed: the block-10 spec (`draft/x402/specs/schemes/exact/scheme_exact_nano.md`
+  "Reference implementations") claimed the Python reference "implements the /supported,
+  /verify, /settle surface", but the product had NO HTTP facilitator and a single-RPC
+  verifier. Roadmap stage 1 explicitly requires a self-hostable facilitator (/verify,
+  /settle, /supported) that verifies on ≥2 independent RPCs. Block 12 builds the real thing.
+- `nano_mcp/facilitator.py` (new): `RpcEndpoint` (URL + api_key + injectable `call` for
+  offline tests); `verify_block_on_independent_endpoints(endpoints, hash, payTo, amount)`
+  FAILS CLOSED — needs ≥2 endpoints, and ANY endpoint error/unconfirmed/non-send/wrong
+  amount/wrong payTo refuses (strategy law L1, mirroring the verified block-11 TS `rpc.ts`);
+  `ClaimStore` — atomic single-use claim keyed `nano:live <hash> <request_id>` (sqlite
+  `INSERT PRIMARY KEY`, same exactly-once discipline + WAL/busy-timeout/rollback as
+  `store.py`); `Facilitator` with `supported()` / `verify()` / `settle()` matching the spec
+  exactly (verify parses requirements consistency + 64-hex proof then cross-checks ≥2 RPCs;
+  settle RE-verifies — never trusts a prior /verify — then claims atomically, returns
+  duplicate on repeat); `make_handler` / `serve` — stdlib `ThreadingHTTPServer` self-hostable
+  HTTP surface (GET /supported, POST /verify, POST /settle).
+- `tests/test_facilitator.py` (16 tests): L16 (surface + confirm-on-2 + fail-closed-on-1-broken
+  + refuses <2 endpoints + unconfirmed/wrong-amount/wrong-payTo + bad proof + requirements
+  consistency + real HTTP /supported & /verify), L17 (settle re-verifies then claims once,
+  never-trusts-prior-verify, claim-store persists across instances, 4×5 concurrent settles →
+  exactly 1 success, real HTTP /settle exactly once). No funds move, no live node touched:
+  stub RpcEndpoint block stores.
+- Full suite 111 passing (95 prior + 16 new); offline 105 passed (89 + 16).
+- Laws L16 (facilitator surface, ≥2-RPC fail-closed) and L17 (settle atomic single-use)
+  minted for block 12.
+- HONEST GAP: L2 (a live funded on-chain balance confirmed via rpc.nano.to) remains STUCK as
+  before — no funded wallet, AGENTS forbids seeking funds. Nothing in this block fakes it. The
+  facilitator's live-2-RPC confirmation (block real on rpc.nano.to AND a second node) is
+  exercised through stub endpoints; wiring in a real second public node is future work.
+
+Laws: L16 The facilitator exposes /supported /verify /settle per the exact-on-nano spec and
+fails closed unless a proof confirms on at least two independent RPC endpoints (VERIFIED).
+L17 Settle re-verifies on-chain then binds a proof to its request with an atomic single-use
+claim, so one proof settles exactly once (VERIFIED).
