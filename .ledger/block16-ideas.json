@@ -1,0 +1,47 @@
+[
+ {
+  "feature": "F1",
+  "angle": 0,
+  "answer": "Replace hand-written JSON with a deterministic, read-only SQLite adapter that computes Nano share directly from `nano_tx` rows in `journal.db`. This ensures L5 strategy law is derived from real evidence rather than assumptions. The mechanism uses StdLib `sqlite3` in read-only mode to count actual rows, calculating share as `real_rows / total_api_calls` to regenerate `published.json`. Since no funded wallet exists, the honest result is 0%. The system requires no new infrastructure or Merkle trees, working immediately with existing data via `scorecard build --journal-db path/to/journal.db`.",
+  "methodology": "Most people fix the data source (F1); instead implement Merkle Proofs for the journal; because AI agents require verifiable integrity of payment evidence, not just accurate aggregation.",
+  "baseline": "Fix F1 by adding a --journal-db flag to the scorecard CLI that reads from SQLite.",
+  "error": null,
+  "n": 0
+ },
+ {
+  "feature": "F1",
+  "angle": 1,
+  "answer": "Replace the scorecard's hand-written JSON input with a direct, read-only SQLite query against `journal.db`. The CLI must execute `SELECT * FROM nano_tx` via Python's stdlib `sqlite3` (mode=ro) to compute Nano share from real evidence. This ensures strategy law L5 is honestly derived from `append_nano_tx` outputs, eliminating manual data entry and network dependencies while maintaining full programmatic control. Verify by running `scorecard build --journal-db ./journal.db`; expect 0% share if no funded transactions exist, confirming the link to the live store rather than static samples.",
+  "methodology": "Most people export SQLite to JSON manually; instead integrate a read-only sqlite3 adapter directly into the scorecard CLI; because this eliminates the fragile manual hand-off and ensures the scorecard always reflects the live evidence store.",
+  "baseline": "Manually export SQLite rows to a JSON file before running the scorecard.",
+  "error": null,
+  "n": 1
+ },
+ {
+  "feature": "F1",
+  "angle": 2,
+  "answer": "Weakness: Hand-written JSON decouples metrics from ground truth, violating Strategy Law L5 by permitting fabricated or stale data. Fix: Enforce the SQLite journal as the sole source of truth. The scorecard must query nano_tx rows directly via the existing read-only adapter (journaldb.py), eliminating the JSON path entirely to ensure measured Nano share reflects immutable evidence. Since real receipts are currently zero, expect a 0% share; validate this baseline against published.json before adding funded wallets. Hedge: If the journal is empty due to lack of funding, verify pipeline logic with synthetic test data in a separate sandbox, never mixing it with production evidence.",
+  "methodology": "Most people note the risk of fake data; instead fix the source of truth by enforcing SQLite journal reads; because the scorecard must compute from the immutable evidence store (nano_tx) to ensure honest strategy laws.",
+  "baseline": "The weakness is that hand-written JSON allows for fake data and doesn't reflect reality.",
+  "error": null,
+  "n": 2
+ },
+ {
+  "feature": "F1",
+  "angle": 3,
+  "answer": "The Evidence-First Scorecard CLI eliminates manual data entry bias by computing Strategy Law L5 directly from immutable ledger evidence. It opens the Nano journal SQLite database in read-only mode, queries confirmed transactions to derive real share, and injects this integer into the scorecard template, replacing hand-written JSON inputs. The output includes a `data_source: \"live_journal\"` flag. If no transactions exist, the score honestly reflects zero adoption rather than fabricated metrics. To handle locked databases, it falls back to a cached snapshot or fails loudly unless the `--allow-stale` flag is used.",
+  "methodology": "Most people just swap the input file format; instead build an Automated Evidence Auditor that treats the SQLite journal as the single source of truth for all strategic scores; because this prevents manual manipulation and ensures L5 laws are computed only from verifiable, append-only receipts.",
+  "baseline": "A tool that simply reads the SQLite journal directly instead of JSON.",
+  "error": null,
+  "n": 3
+ },
+ {
+  "feature": "F1",
+  "angle": 4,
+  "answer": "Implement Atomic Journal Proofs by replacing hand-written JSON with a Merkle-rooted SQLite export. Modify `journaldb.py` to expose `get_merkle_root()`, computing the SHA-256 root of journal state via StdLib crypto. Update the scorecard CLI to accept a `--proof-hash` flag, verifying this root against a signed manifest from `append_nano_tx`. This creates an append-only, cryptographically verifiable audit trail inspired by Certificate Transparency logs, ensuring data integrity without requiring funded wallets for staking/slashing. Reject any report where the computed hash mismatches the provided proof.",
+  "methodology": "Most people rely on passive read-only adapters or manual sync; instead implement an 'Economic Slashing' verification layer where the agent posting the scorecard must stake Nano that is slashed if the SQLite journal hash mismatches the claimed share; because this aligns the incentive to report honestly with the financial cost of lying, making the 'honest computation' self-enforcing rather than just observed.",
+  "baseline": "Use a standard database trigger or cron job to sync data.",
+  "error": null,
+  "n": 4
+ }
+]

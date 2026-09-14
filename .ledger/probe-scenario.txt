@@ -1,27 +1,82 @@
-End-to-end pay-per-call probe for nano-mcp (block 5).
+End-to-end pay-per-call probe for nano-mcp — final (block 16 close-out, L0..L23).
+Updated from the block-5 probe (which covered only L0-L7) to exercise every law
+through a DISTINCT component or variable, so one piece of evidence cannot count
+for two laws.
 
-Scenario: one agent pays one service in Nano and gets the gated tool result, then
-re-calls with the SAME request_id and observes NO double execution.
+Scenario: one AI agent pays one service in Nano via the full stack — SDK derives
+and reads, buyer SDK signs a capped mandate send, the x402 exact-on-nano spec and
+reference implementation are drafted (P1, gated on human approval), the HTTP 402
+resource server + facilitator verify/settle on two independent RPCs exactly once,
+the MCP paidTool wrapper serves the protected result once, and the open-rail
+scorecard measures the Nano share from REAL nano-pulse journal evidence.
 
-Components exercised by DISTINCT variables:
-  L0/L3 SDK path:  an SDK Wallet (nano_sdk.wallet.Wallet) signs a send to the
-                   one-time address; balance/frontier/process come from a stub
-                   standing in for rpc.nano.to (no funded wallet exists, and the
-                   AGENTS rules forbid seeking funds — the live-funded leg is the
-                   recorded L2/L3 STUCK; the signing/hash/process path is what
-                   drives the stub, EXACTLY as in tests/test_wallet.py).
-  L4 one-time addr: MCP tool `quote` derives the payment address from the server
-                   master secret via HKDF-SHA256 -> Ed25519 -> nano_ address.
-  L5 exactly-once:  MCP tool `verify_payment(request_id, amount_raw)` approves
-                   only after a matching on-chain `receive` is seen on that one
-                   time address; a repeat returns status='spent'.
-  L6 replay-safe:   the same request_id yields exactly one approval / executes the
-                   gated result once and never twice.
-  L7 evidence gate: the external payer (not in NANO_AGENT_OWN_ACCOUNTS) is
-                   journaled as one `nano_tx` row; the owner account is never
-                   journaled (gate returns False, zero rows).
+Distinct component / variable per law:
+  L0  crypto: tests/test_crypto.py seed->priv->pub->address vs docs.nano.org
+      vectors + tests/test_client.py derived-account live round-trip vs node
+      ground truth.
+  L1  live read: tests/test_client.py test_live_balance_read posts account_balance
+      to NANO_RPC_URL, asserts int(raw) > 0.
+  L2  live funded send: STUCK — no funded wallet; AGENTS forbids seeking funds;
+      recorded not faked (the signed-block hash/sig path is proven vs live chain).
+  L3  send guards: tests/test_wallet.py send-over-balance and over-daily-cap both
+      raise (InsufficientBalance / DailyCapExceeded) with no broadcast.
+  L4  one-time address: tests/test_payments.py two request_ids -> different
+      addresses, same id -> same address.
+  L5  verify exactly-once: tests/test_payments.py verify approves after a matching
+      on-chain send, second verify returns spent; repeat stays pending.
+  L6  replay-safe end-to-end: tests/test_probe.py one pay-per-call executes gated
+      tool once, same request_id never twice.
+  L7  evidence gate: tests/test_evidence.py nano_tx row lands for external payer,
+      zero rows for NANO_AGENT_OWN_ACCOUNTS.
+  L8  dollar quote median: tests/test_pricing.py three injected rates -> ceil(usd/
+      median*1e30) exact XNO; quote never touches the chain (no custody/convert).
+  L9  quote expiry: tests/test_pricing.py expires_at - t <= 30s; expired quote
+      verify returns 'expired' and does not approve.
+  L10 buyer mandate: tests/test_buyer.py valid owner-signed, unexpired, correctly
+      bound mandate authorizes send; tampered/wrong-key/expired/mis-bound raise
+      with zero process calls.
+  L11 buyer caps: tests/test_buyer.py over session cap / over daily 0.01 XNO cap /
+      over balance all raise with zero process calls; up-to-cap send allowed+recorded.
+  L12 scorecard reproducibility: tests/test_scorecard.py build then verify() ok on
+      published raw data; corrupting a figure makes verify fail; CLI build+verify
+      exit 0 with 'verify PASS' (reproducible).
+  L13 scorecard share honesty: tests/test_scorecard.py share counts only external
+      receipts (1/(165000000+1)); own-account and empty journal both share == 0.0.
+  L14 x402 spec draft: tests/test_x402_draft.py (8) spec has every required x402
+      section, JSON examples parse to network=nano:live/asset=XNO/scheme=exact,
+      >=2-independent-RPC fail-closed + exactly-once claim, pending.md frames P1,
+      opens no PR.
+  L15 x402 reference-impl draft: tests/test_x402_draft_refimpl.py type-checks
+      against published @x402/core, encodes network/asset/paymentProof 64-hex,
+      fail-closed >=2-RPC + atomic single-use claim, opens no PR.
+  L16 facilitator surface + 2-RPC: tests/test_facilitator.py /supported /verify
+      /settle per spec; verify confirms on two independent endpoints, fails closed
+      when any errors, refuses <2 endpoints; HTTP GET/POST.
+  L17 settle exactly-once: tests/test_facilitator.py settle re-verifies on-chain
+      then atomically claims once; never trusts prior verify; persists across
+      instances; concurrent settles approve exactly once; HTTP POST exactly once.
+  L18 live 2-RPC verifier: tests/test_facilitator_live.py confirms a REAL confirmed
+      Nano send on two independent public RPCs (confirmed_on == 2); refuses a
+      malformed node response.
+  L19 HTTP 402 resource server: tests/test_httpx402.py first GET -> 402 with
+      payment-required header (scheme exact / network nano:live / asset XNO /
+      one-time nano_ payTo / exact amount); retry with payment-signature the
+      facilitator verifies+settles -> 200 with protected result + payment-response
+      header; wire client pay_and_fetch completes the two-request dance.
+  L20 spent-proof refusal over HTTP: tests/test_httpx402.py replaying the same
+      spent payment-signature header -> 402, protected result absent.
+  L21 MCP paidTool refuses replay: tests/test_paidtool.py execute twice with same
+      request_id/paymentProof -> ok first, refused second, no protected result.
+  L22 MCP paidTool one-time payTo + 2-RPC: tests/test_paidtool.py request returns
+      a distinct one-time nano_ payTo + exact amount per call; execute with a
+      64-hex proof confirmed on both endpoints returns protected result exactly
+      once; fails closed when one endpoint errors; wrong amount / missing requestId
+      refused.
+  L23 scorecard from real journal: tests/test_journaldb.py journaldb reader pulls
+      nano_tx rows (external payer only) from the REAL nano-pulse evidence DB
+      (mode=ro, network-free); build/verify --journal-db reproduces published.json
+      exactly; own accounts never written and add zero to the share.
 
-Honest scope: no real XNO moves in this probe (no funded wallet, funds forbidden).
-It proves the end-to-end WIRING of SDK -> MCP one-time-address -> exactly-once
-verify -> gated single execution -> evidence journal on the chain stub; the real
-on-chain funded confirmation remains the recorded STUCK (L2/L3).
+Honest scope: no real XNO moves (no funded wallet, funds forbidden — L2/L3 remain
+the recorded STUCK). Every other law is proven by a quoted assertion from the 143
+tests run this close-out; the probe wires them each through a distinct component.

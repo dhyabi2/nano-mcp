@@ -1,0 +1,7 @@
+[
+  {
+    "id": "F1",
+    "name": "scorecard reads hand-written JSON",
+    "text": "The nanos-to-USD open rail scorecard's --journal path only accepts a hand-written JSON array of receipts, so the measured Nano share could not be computed from the real evidence store that append_nano_tx journals into (nano_tx rows in the nano-pulse journal.db)."
+  }
+]
