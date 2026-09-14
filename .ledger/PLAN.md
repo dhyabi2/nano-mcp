@@ -188,6 +188,20 @@ L13 Every published scorecard figure is reproduced exactly by rerunning the
 scorecard build on the published raw data (VERIFIED: build==verify passes on
 committed raw; tampering a raw figure makes verify fail).
 
-## Verification cadence
-After each block: `ledger verify --block N` (second model, quoted evidence), then `ledger unwind`
-for earlier laws, follow STUCK/Δ rules. Probe (block 5): one scenario, distinct evidence per law.
+## Block 9 — distribution without permission (roadmap stage 5) — INITIATED this run
+- Roadmap stage 1–4 implemented across blocks 2–8 (nano scheme/facilitator + MCP
+  paidTool, dollar-priced quotes, buyer SDK, open rail scorecard). 78 tests pass.
+- Stage 5 is outward-facing (upstream PRs), so per AGENTS.md "Public actions" it
+  must be proposed in pending.md first; Rai must NOT open the PRs itself.
+- This run: benchmarked the concrete target (x402 Foundation `x402` open-source
+  SDK), confirmed its CONTRIBUTING.md accepts new schemes/chains via a spec-first
+  two-PR workflow (`scheme_<scheme>_<chain>.md` spec, then one-SDK reference
+  implementation of `SchemeNetworkClient/Server/Facilitator`; no core changes).
+- Wrote proposal **P1** to ~/nano-agent/pending.md: add a `nano` (XNO) scheme to x402,
+  describing exactly what blocks 2–8 already build/verify (one-time address, ≥2 RPC
+  verification, self-hostable facilitator). NO PR submitted (awaiting human approval).
+- HONEST GAP: L2 (live funded on-chain send) remains STUCK as before (no funded
+  wallet, forbids seeking funds). Nothing in this block fakes it.
+
+Laws: none minted this run (block adds no new code; pending.md proposal is outward-
+facing and requires human approval before any PR can exist to verify against).
