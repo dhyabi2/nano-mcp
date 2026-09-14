@@ -1053,7 +1053,6 @@
   "events": [
     {
       "kind": "owner_cleanup",
-      "at": "2026-09-14T22:16:38Z",
       "payload": {
         "blocks": [
           "3",
@@ -1100,7 +1099,10 @@
           "L26"
         ],
         "reason": "Owner 2026-09-15: old Nano-internal milestones removed; Rai works outside the Nano ecosystem, reusing existing hub.nano.org tools."
-      }
+      },
+      "at": "2026-09-14T22:18:12+00:00",
+      "prev": "genesis",
+      "receipt": "291a705034f83653e2c06c417dc653e9f6c2059ec95ebc50e32b09cac02559f7"
     }
   ]
 }
