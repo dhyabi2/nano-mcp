@@ -136,6 +136,20 @@
    "statement": "The multi-RPC verifier parses the real Nano block_info shape and confirms a real on-chain send on two independent public endpoints.",
    "test": "verify_block_on_independent_endpoints confirms a real confirmed Nano send block on two independent public RPCs with a non-empty payer; an incomplete/malformed node response is refused, not passed.",
    "minted": "2026-09-14T08:54:07+00:00"
+  },
+  {
+   "id": "L19",
+   "block": 14,
+   "statement": "The nano exact resource server returns HTTP 402 with a payment-required header then serves the protected result once its payment proof is settled",
+   "test": "tests/test_httpx402.py drives a real in-process HTTP server: the first GET returns 402 with a payment-required header carrying the nano exact requirement (scheme exact, network nano:live, asset XNO, a one-time nano_ payTo and the exact raw amount), and after the client retries with a payment-signature payload that the facilitator verifies then settles the server returns 200 with the protected result and a payment-response header; a wire client pay_and_fetch completes the two-request dance. Full suite 130 passes.",
+   "minted": "2026-09-14T09:47:08+00:00"
+  },
+  {
+   "id": "L20",
+   "block": 14,
+   "statement": "A spent payment proof is refused so one payment never serves the resource twice",
+   "test": "tests/test_httpx402.py replays the same spent payment-signature header a second time and asserts HTTP 402 with the protected result absent, because the facilitator's atomic single-use claim consumes the one proof exactly once.",
+   "minted": "2026-09-14T09:47:08+00:00"
   }
  ],
  "blocks": {
@@ -2780,6 +2794,123 @@
      "at": "2026-09-14T09:33:35+00:00"
     }
    ]
+  },
+  "14": {
+   "status": "pending",
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "test_crypto.py:44-46 (private key matches DOCS_PRIV), test_public_key_derivation_matches_docs_keyexpand, test_address_matches_docs_keyexpand, test_address_encoding_matches_node (rpc.nano.to vectors), test_derived_account_agrees_with_node – all PASSED in fresh pytest."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "test_client.py:23-27 test_live_balance_read asserts raw.isdigit() and int(raw)>0; test_live_history_read passed."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "FAIL: no quoted proof found for L2. The law requires a live self-transfer send that is accepted and confirmed on-chain via rpc.nano.to (process returns hash later in account_history). The fresh pytest lists test_live_confirmed_block_hash_recomputed, but it does not clearly match the described send-and-confirm scenario; no test source lines are provided for L2."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "test_wallet.py:56-63 test_send_over_balance_raises_without_publishing, test_wallet.py:66-77 test_send_over_daily_cap_raises_without_publishing – both passed."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "test_payments.py:58-62 test_l4_distinct_addresses_for_different_request_ids; test_payments.py:65-68 test_l4_same_request_id_reproduces_same_address – both passed."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "test_payments.py:93-108 test_l5_approves_once_when_onchain_send_seen (status approved then spent); test_l5_concurrent_claims_approve_exactly_once passed."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "test_probe.py:66-81 test_end_to_end_pay_per_call_succeeds_and_is_replay_safe passed."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "test_evidence.py:43-58 test_append_logs_external_once (row count ==1); test_evidence.py:62-72 test_append_never_logs_own_account (row count ==0) – both passed."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "test_pricing.py:97-111 test_quote_usd_returns_exact_median_amount_and_no_money_moves (price_raw == usd_to_xno_raw(…)); test_pricing.py:214-226 test_live_median_of_three_sources_returns_numeric – both passed."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "test_pricing.py:163-176 test_quote_expires_in_30_seconds_or_less (expires_at - t <= 30.0); test_pricing.py:179-193 test_verify_refuses_expired_quote__does_not_approve (status expired) – both passed."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "test_buyer.py:90-97 valid mandate authorizes send; test_l10_tampered_signature_refused_before_broadcast (no process calls); also test_l10_wrong_owner_public_key_refused, test_l10_expired_mandate_refused, test_l10_misbound_mandate_refused – all PASSED in fresh pytest."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "test_buyer.py:139-145 over-session-cap refused no process calls; 148-155 over-daily-cap refused no process calls; 158-165 over-balance refused no process calls; 172-173 sending up to session cap allowed and recorded – all PASSED."
+      },
+      {
+       "id": "L12",
+       "pass": true,
+       "evidence": "test_scorecard.py:62-72 share=1/(165000000+1) with own-account row contributing zero; test_scorecard.py:75-82 share==0 for all-own and empty; test_count_external_receipts_uses_evidence_gate_semantics passed – all PASSED."
+      },
+      {
+       "id": "L13",
+       "pass": true,
+       "evidence": "test_scorecard.py:106-112 build+verify ok; 115-122 corruption causes verify fail; test_cli_build_and_verify_is_reproducible (subprocess exit 0) – all PASSED."
+      },
+      {
+       "id": "L14",
+       "pass": true,
+       "evidence": "test_x402_draft.py: both test_spec_encodes_strategy_law_l1_two_independent_rpcs and test_spec_encodes_single_use_claim passed; also test_spec_file_exists, test_spec_has_all_required_sections, test_spec_payload_uses_nano_proof_and_network, test_spec_json_blocks_parse, test_pending_p1_framed_as_exact_scheme_on_nano_network, test_no_upstream_pr_opened_by_default – all PASSED (8 tests)."
+      },
+      {
+       "id": "L15",
+       "pass": true,
+       "evidence": "test_x402_draft_refimpl.py: test_refimpl_implements_the_three_core_interfaces, test_refimpl_typechecks_against_published_x402_core, test_refimpl_encodes_network_asset_and_64hex_proof, test_refimpl_fail_closed_two_independent_rpcs, test_refimpl_atomic_single_use_claim, test_pending_frames_refimpl_and_opens_no_pr – all PASSED in fresh pytest."
+      },
+      {
+       "id": "L16",
+       "pass": true,
+       "evidence": "test_facilitator.py: test_l16_facilitator_exposes_supported_verify_settle, test_l16_verify_confirms_on_two_independent_endpoints (confirmedOn==2), test_l16_fail_closed_when_any_endpoint_errors, test_l16_refuses_less_than_two_endpoints, test_l16_http_get_supported, test_l16_http_post_verify_confirms_on_two_endpoints – all PASSED."
+      },
+      {
+       "id": "L17",
+       "pass": true,
+       "evidence": "test_facilitator.py: test_l17_settle_re_verifies_then_claims_atomically, test_l17_settle_never_trusts_prior_verify, test_l17_claim_store_persists_exactly_once_across_instances, test_l17_concurrent_settles_approve_exactly_once, test_l17_http_post_settle_exactly_once – all PASSED."
+      },
+      {
+       "id": "L18",
+       "pass": true,
+       "evidence": "test_facilitator_live.py: test_normalize_parses_real_nano_block_info_shape, test_live_confirms_real_send_on_two_independent_public_rpcs, test_incomplete_node_response_is_refused_not_passed – all PASSED."
+      },
+      {
+       "id": "L19",
+       "pass": true,
+       "evidence": "test_httpx402.py: test_402_then_serves_after_settled_payment (first 402 with header, then 200 with payment-response), test_wire_client_completes_the_two_request_dance (status 200) – both PASSED. Full suite 130 passed."
+      },
+      {
+       "id": "L20",
+       "pass": true,
+       "evidence": "test_httpx402.py: test_spent_proof_never_serves_twice (replay yields 402, protected result absent) – PASSED."
+      }
+     ],
+     "at": "2026-09-14T09:54:00+00:00"
+    }
+   ]
   }
  },
  "deltas": [
@@ -2827,6 +2958,11 @@
    "block": 13,
    "text": "L2.verify_status: unverified → STUCK (persists from block 3; no funded wallet, AGENTS forbids seeking funds — block 13 is read-only proof verification and does not fake a live funded send).",
    "at": "2026-09-14T09:18:31+00:00"
+  },
+  {
+   "block": 14,
+   "text": "L2.verify_status: STUCK → STUCK (still no funded wallet; AGENTS forbids seeking funds; block 14 added x402 HTTP 402 Resource Server + wire, 130 tests pass, live-funded leg still recorded-not-faked)",
+   "at": "2026-09-14T09:51:14+00:00"
   }
  ],
  "probe": {

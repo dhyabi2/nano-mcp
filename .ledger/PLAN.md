@@ -339,3 +339,46 @@ claim, so one proof settles exactly once (VERIFIED).
 
 Laws: L18 The multi-RPC verifier parses the real Nano block_info shape and confirms a real
 on-chain send on two independent public endpoints (VERIFIED: live 2-RPC test + 7 offline).
+
+## Block 14 — x402 `exact`-on-`nano` over HTTP: 402 Resource Server + wire client (done this run)
+- Closed the last roadmap-stage-1 gap. Blocks 10-13 built the `exact`-on-`nano` spec, TS
+  reference implementation, and the self-hostable FACILITATOR (`/supported` `/verify` `/settle`,
+  fail-closed >=2 independent RPCs). The missing half of the x402 protocol (strategy law L0:
+  "returns HTTP 402 with a nano requirement, then serves the result after a real XNO payment")
+  is the **Resource Server** — the HTTP endpoint that answers a protected-resource request with
+  `402 Payment Required` and a `payment-required` header, then serves the result after the client
+  retries with a `payment-signature` payload that the facilitator verifies and settles.
+- `nano_mcp/httpx402.py` (new, stdlib only — reuses the block-12 facilitator + block-4 oneshot):
+  - Wire-faithful to the x402 README 12-step flow and @x402/core v2 types: `PaymentRequired=
+    {x402Version:2, accepts:[PaymentRequirements]}`, `PaymentPayload={x402Version:2, accepted,
+    payload:{paymentProof:<64-hex>}}`, `SettleResponse={success,transaction,network,payer,
+    amount}`; headers `payment-required` / `payment-signature` / `payment-response` (base64 JSON).
+  - `derive_requirements(master, request_id, amount_raw)` -> deterministic one-time `payTo`
+    (HKDF, reusing `oneshot.derive_one_time_account`); the server is STATELESS — it re-derives
+    what it would have issued for any presented `accepted` and rejects a payload whose
+    accepted.scheme/network/asset/amount/payTo/requestId differ (structural request binding).
+  - `ResourceApp`: `begin()` issues the 402 `PaymentRequired`; `complete(payload)` runs the
+    facilitator `verify` (>=2 RPC fail-closed) THEN `settle` (re-verifies + atomic single-use
+    claim) and only reports ok on settlement success.
+  - `make_resource_handler` / `serve_resource`: a self-hostable BaseHTTPRequestHandler that does
+    402 -> (payment-signature) -> 200 + `payment-response`, returns 402 on invalid/spent proof,
+    400 on a bad signature encoding.
+  - `pay_and_fetch(client, url, payer)`: the two-request wire client (mirrors the TS NanoPayer
+    boundary) for the demo/tests.
+- `tests/test_httpx402.py` (11 tests): real in-process HTTP server, stub `RpcEndpoint`s emitting
+  the REAL block_info shape (block-13 lesson). Proves L19 (two-request dance returns 200 + the
+  protected result + a successful `payment-response` settlement; `pay_and_fetch` completes it)
+  and L20 (replaying the same spent `payment-signature` stays 402, never a second resource), plus
+  one-time payTo distinct per request, unconfirmed-proof refusal, tampered-`accepted` refusal,
+  fail-closed on 1-of-2 broken endpoint, missing requestId refusal, and 400 on bad encoding.
+  No funds move: the stub "nodes" confirm the send the test payer "broadcasts".
+- Laws L19 and L20 minted for block 14. Full suite 130 passing (119 + 11 new).
+- HONEST GAP: L2 (a live funded on-chain SEND confirmed via rpc.nano.to) remains STUCK as before —
+  no funded wallet, AGENTS forbids seeking funds. Block 14 wires the whole HTTP 402 handshake
+  against stub nodes with the real verifier; it does not fake the funded leg.
+
+Laws: L19 The nano exact resource server returns HTTP 402 with a payment-required header then
+serves the protected result once its payment proof is settled (VERIFIED: 11 HTTP handshake tests,
+full suite 130).
+L20 A spent payment proof is refused so one payment never serves the resource twice (VERIFIED:
+replayed payment-signature returns 402 with the resource absent).
