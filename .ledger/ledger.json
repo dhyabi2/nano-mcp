@@ -73,6 +73,20 @@
    "statement": "A dollar quote expires in 30 seconds or less.",
    "test": "test mints a quote with an injectable clock at t, asserting expires_at - t <= 30s; a second test advances the clock past expires_at and asserts verify_payment returns status='expired' and does not approve.",
    "minted": "2026-09-14T01:27:26+00:00"
+  },
+  {
+   "id": "L10",
+   "block": 7,
+   "statement": "A buyer session spends only under a valid owner-signed, unexpired mandate bound to its own sub-account.",
+   "test": "tests/test_buyer.py: a valid mandate authorizes a send; tampered signature, wrong owner key, expired, or mis-bound mandate raise before the client records any process call.",
+   "minted": "2026-09-14T02:08:48+00:00"
+  },
+  {
+   "id": "L11",
+   "block": 7,
+   "statement": "The buyer SDK enforces a per-session cap, the daily cap, and the balance guard before broadcast.",
+   "test": "tests/test_buyer.py: a send over the session cap, over the daily 0.01 XNO cap, or over the on-chain balance raises with no client process call recorded; sending up to the session cap is allowed and recorded.",
+   "minted": "2026-09-14T02:08:56+00:00"
   }
  ],
  "blocks": {
@@ -648,6 +662,269 @@
      "at": "2026-09-14T01:48:52+00:00"
     }
    ]
+  },
+  "7": {
+   "status": "stuck",
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L0."
+      },
+      {
+       "id": "L1",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L1."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L2."
+      },
+      {
+       "id": "L3",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L3."
+      },
+      {
+       "id": "L4",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L4."
+      },
+      {
+       "id": "L5",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L5."
+      },
+      {
+       "id": "L6",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L6."
+      },
+      {
+       "id": "L7",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L7."
+      },
+      {
+       "id": "L8",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L8."
+      },
+      {
+       "id": "L9",
+       "pass": false,
+       "evidence": "Missing evidence: no test file or command output provided for L9."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py lines 90-135: test_l10_valid_mandate_authorizes_send, test_l10_tampered_signature_refused_before_broadcast, test_l10_wrong_owner_public_key_refused, test_l10_expired_mandate_refused, test_l10_misbound_mandate_refused. Assertions confirm valid mandate authorizes and invalid/expired/misbound raise with zero process calls. Command output: '10 passed in 0.21s'."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py lines 139-177: test_l11_over_session_cap_refused, test_l11_over_daily_cap_refused, test_l11_over_balance_refused, test_l11_up_to_session_cap_allowed_and_recorded. Assertions confirm caps enforced pre-broadcast, exact cap allowed, and no process call on violations. Command output: '10 passed in 0.21s'."
+      }
+     ],
+     "at": "2026-09-14T02:14:23+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-56 (derivation vectors), tests/test_crypto.py:59-68 (node ground truth), tests/test_client.py:38-47 (live account_key round-trip); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-27 (live balance read), tests/test_client.py:33-34 (live history read); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "No test sends a live self-transfer and asserts the block hash appears in account_history. The only live block test (tests/test_block.py:94-122) recomputes hashes of existing blocks, and all send tests (test_wallet.py, test_probe.py) use stubs. Missing: live rpc.nano.to send and confirmation test."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63 (overdraw raises, no process call), tests/test_wallet.py:66-77 (over daily cap raises, only one process call); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68 (distinct and reproducible addresses), tests/test_server.py:52-73 (MCP quote address stability); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 (approve once after on-chain send, second call spent), tests/test_payments.py:120-134 (persistence), tests/test_payments.py:137-156 (concurrent), tests/test_server.py:76-91 (MCP verify once); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-110 (end-to-end pay-per-call with SDK wallet and MCP server, replay returns 'spent'); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:37-72 (should_log external vs own, append logs external once, never logs own), tests/test_probe.py:101-109 (journal gate in probe); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:86-94 (exact XNO from median of injected rates), tests/test_pricing.py:97-117 (quote_usd pure computation), tests/test_pricing.py:145-159 (no chain contact), tests/test_pricing.py:213-226 (live median from three sources); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-176 (expires within 30s), tests/test_pricing.py:179-195 (after expiry returns 'expired' and not approved); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:90-97 (valid mandate authorizes send), tests/test_buyer.py:101-135 (tampered, wrong owner, expired, misbound all refuse without process calls); command output: '68 passed in 7.31s'"
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:139-145 (over session cap refused), tests/test_buyer.py:148-155 (over daily cap refused), tests/test_buyer.py:158-165 (over balance refused, no broadcast), tests/test_buyer.py:168-177 (up to cap allowed and recorded); command output: '68 passed in 7.31s'"
+      }
+     ],
+     "at": "2026-09-14T02:16:35+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-56: test_private_key_derivation_matches_official_vector asserts derive_private_key(DOCS_SEED, index=1) == DOCS_PRIV from docs.nano.org the-basics; test_public_key_derivation_matches_docs_keyexpand and test_address_matches_docs_keyexpand assert priv->pub and pub->address against docs key_expand example; tests/test_crypto.py:59-68 with NODE_PAIRS ground truth from rpc.nano.to account_key; tests/test_client.py:38-47 test_derived_account_agrees_with_node does live account_key round-trip of derived SDK account."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:22-29 test_live_balance_read: b = client.account_balance(...); assert raw.isdigit(); assert int(raw) > 0; assert \"balance_nano\" in b. Also tests/test_client.py:31-34 test_live_history_read posts account_history and asserts len(h.get(\"history\", [])) >= 1."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "No evidence found. test_block.py only recomputes hashes of existing confirmed blocks (test_live_confirmed_block_hash_recomputed); test_probe.py explicitly states: 'HONEST SCOPE: the SDK's send leg uses a stub client standing in for rpc.nano.to ... no real XNO moves ... the live-funded confirmation remains the recorded L2/L3 STUCK.' There is no test that sends a signed block via rpc.nano.to and asserts the returned process hash later appears in account_history."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-77: test_send_over_balance_raises_without_publishing (raises InsufficientBalance, no process call), test_send_over_daily_cap_raises_without_publishing (raises DailyCapExceeded after cap filled, only one publish)."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68: test_l4_distinct_addresses_for_different_request_ids asserts one_time_account('req-1').address != one_time_account('req-2').address; test_l4_same_request_id_reproduces_same_address asserts a1 == a2."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108: test_l5_approves_once_when_onchain_send_seen drives a send to derived address, asserts verify_payment status 'approved' with tx_hash, then second call status 'spent' and store.is_approved. Also concurrent test lines 137-157 asserts exactly one approval."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-111 test_end_to_end_pay_per_call_succeeds_and_is_replay_safe: uses Wallet and MCP server, quotes, wallet.send(addr, amt) to one-time address, verify_payment returns '\"approved\"', second verify_payment returns '\"spent\"' — no double execution."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-72: test_append_logs_external_once (one nano_tx row, data external True) and test_append_never_logs_own_account (returns False, _count_tx==0). Also probe lines 101-109."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:68-94: test_usd_to_xno_raw_rounds_up_never_underpays uses ROUND_CEILING formula; test_exact_xno_amount_uses_fixed_rate_offline with three injected rates asserts raw == usd_to_xno_raw; test_quote_usd_returns_exact_median_amount_and_no_money_moves; test_quote_usd_is_pure_computation_no_chain_contact asserts no chain contact; test_live_median_of_three_sources_returns_numeric checks three live sources and numeric median."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-177: test_quote_expires_in_30_seconds_or_less asserts expires_at - 5000.0 <= QUOTE_TTL_SECONDS and <= 30.0, and expired() after window; tests/test_pricing.py:179-196 test_verify_refuses_expired_quote__does_not_approve asserts status='expired' and not store.is_approved."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:90-135: valid mandate authorizes send (line 90-97); tampered signature refuses with MandateError (101-107); wrong owner pubkey refuses (110-114); expired refuses with ExpiredMandate (117-125); misbound sub-account refuses (128-135) — all assert no process calls."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:139-177: test_l11_over_session_cap_refused (SessionCapExceeded, no process calls), test_l11_over_daily_cap_refused (DailyCapExceeded, no process calls), test_l11_over_balance_refused (InsufficientBalance or SessionCapExceeded, no process calls), test_l11_up_to_session_cap_allowed_and_recorded (send succeeds, process_calls==1, second spend refused)."
+      }
+     ],
+     "at": "2026-09-14T02:17:13+00:00"
+    },
+    {
+     "kind": "unwind",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-56: test_private_key_derivation_matches_official_vector asserts derive_private_key(DOCS_SEED, index=1).hex().upper() == DOCS_PRIV; test_public_key_derivation_matches_docs_keyexpand asserts public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND; test_address_matches_docs_keyexpand asserts address_from_public_key(DOCS_PUB_EXPAND) == DOCS_ADDR_EXPAND. Also live agreement: test_client.py:46-47 asserts node_key.lower() == acct.public_key.hex() for a derived account."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-28: test_live_balance_read calls client.account_balance(\"nano_1faucet...\") and asserts raw.isdigit(), int(raw) > 0, and \"balance_nano\" in b. tests/test_client.py:32-34 asserts account_history returns history with at least 1 entry. Both are network tests against NANO_RPC_URL."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence. No test performs a live self-transfer via rpc.nano.to and asserts the process hash appears in account_history. tests/test_wallet.py and tests/test_probe.py use StubClient; test_block.py only recomputes hashes of already-confirmed blocks. test_probe.py lines 14-17 explicitly state: 'the live-funded confirmation remains the recorded L2/L3 STUCK.'"
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63 test_send_over_balance_raises_without_publishing with amount > balance raises InsufficientBalance and no process call; tests/test_wallet.py:66-77 test_send_over_daily_cap_raises_without_publishing sends the exact cap then >cap raises DailyCapExceeded with no second process. Also tests/test_wallet.py:19-38 shows balance and cap are checked before publishing."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68: test_l4_distinct_addresses_for_different_request_ids asserts a != b; test_l4_same_request_id_reproduces_same_address asserts a1 == a2. tests/test_server.py:59-71 additionally validates the MCP quote tool's request_id and address behavior."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 test_l5_approves_once_when_onchain_send_seen sets one receive on the one-time address, first verify returns approved with tx_hash, second returns spent. tests/test_payments.py:137-156 test_l5_concurrent_claims_approve_exactly_once shows exactly one approval among 8 concurrent calls. tests/test_payments.py:120-134 proves persistence across service instances."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-111 test_end_to_end_pay_per_call_succeeds_and_is_replay_safe: one quote, one SDK send (stub node), verify returns approved, second verify returns spent. It also exercises the journal gate and records exactly one nano_tx for the external payer and zero for the owner."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-59 test_append_logs_external_once appends one nano_tx row for EXT; tests/test_evidence.py:62-72 test_append_never_logs_own_account appends zero rows for OWN. tests/test_probe.py:101-109 repeats the check with a scratch journal and asserts len(journal_mod.read_after(db,0)) == 1."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:86-94 test_exact_xno_amount_uses_fixed_rate_offline asserts raw equals usd_to_xno_raw(1.00, 0.34) and rate == 0.34. tests/test_pricing.py:97-117 test_quote_usd_returns_exact_median_amount_and_no_money_moves uses injected _src(\"0.34\") and asserts price_raw equals the median-derived raw amount. tests/test_pricing.py:145-159 test_quote_usd_is_pure_computation_no_chain_contact uses a spy client and proves quote_usd never contacts it. Live median test at tests/test_pricing.py:214-226 fetches DEFAULT_SOURCES and asserts a numeric positive median."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-176 test_quote_expires_in_30_seconds_or_less asserts expires_at - 5000.0 <= QUOTE_TTL_SECONDS and <= 30.0; also q.expired(now=q.expires_at + 0.001) is True. tests/test_pricing.py:179-195 test_verify_refuses_expired_quote__does_not_approve advances the clock and asserts status == \"expired\" and store.is_approved(\"req-exp\") is False."
+      }
+     ],
+     "at": "2026-09-14T02:18:08+00:00"
+    }
+   ]
   }
  },
  "deltas": [
@@ -670,6 +947,11 @@
    "block": 5,
    "text": "L2.verify_status: unverified → STUCK (persists from blocks 3-4: no funded wallet, AGENTS forbids seeking funds, so live funds-broadcast+confirm cannot run; the end-to-end probe drives the same SDK→one-time-address→verify wiring on a chain stub). Block 5's own laws L6 (e2e replay-safe) and L7 (evidence journal gate) verify PASS; L0,L1,L3,L4,L5 remain PASS.",
    "at": "2026-09-14T01:06:11+00:00"
+  },
+  {
+   "block": 7,
+   "text": "L2.verify_status: unverified → STUCK (persists from blocks 3-6: no funded wallet, AGENTS forbids seeking funds, so a live funded on-chain send+confirm cannot run; the buyer session's send path is proven against the same chain-stub discipline). Block 7's own laws L10 (owner-signed binding mandate) and L11 (session/daily/balance caps pre-broadcast) verify PASS; L0,L1,L3-L9 remain PASS.",
+   "at": "2026-09-14T02:18:15+00:00"
   }
  ],
  "probe": {

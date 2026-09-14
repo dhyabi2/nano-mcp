@@ -129,6 +129,34 @@ laws + live median test).
 L9 a dollar quote expires within 30 seconds (VERIFIED: quote TTL ≤30s and
 verify_payment returns 'expired' and never approves past the window).
 
+## Block 7 — Buyer SDK (owner-signed mandates + capped per-session sub-accounts) — done this session
+- `nano_sdk/buyer.py` — Roadmap stage 3. Solves the "an autonomous/compromised
+  agent holding spend authority could drain the wallet" risk:
+  - `derive_session_account(master_seed, session_id)`: HKDF-SHA256 sub-account
+    deterministic per session, distinct across sessions, so a leaked session
+    key cannot derive or spend another session's share (test asserts two
+    session_ids differ and repeats reproduce).
+  - `Mandate` + `issue_mandate`/`verify_mandate`: the OWNER signs
+    {session_id, address(es bound sub-account), cap_raw, issued_at, expires_at,
+    nonce} with their Ed25519 private key. Nothing in the grant can be edited
+    without breaking the signature; it cannot be replayed past expiry.
+  - `SessionWallet.check_spend`/`send`: fail-closed, ALL checks BEFORE any block
+    is built or broadcast — owner signature, unexpired, address binding
+    (mandate.address == this session's account) (L10); per-session cap, the
+    0.01 XNO/day cap, and the on-chain balance guard (L11).
+- `tests/test_buyer.py`: 10 new tests (valid mandate authorizes; tampered /
+  wrong-key / expired / misbound all refuse with no process call; over-session /
+  over-daily / over-balance refuse with no process call; up-to-cap allowed and
+  recorded; session-sub isolation). 68 tests pass.
+- ledger verify block 7: L0,L1,L3,L4,L5,L6,L7,L8,L9,L10,L11 PASS; L2 STUCK
+  (no funded wallet — the standing honest gap from block 3, not a regression).
+  Block 7's own laws L10/L11 PASS.
+
+Laws: L10 a buyer session spends only under a valid owner-signed, unexpired
+mandate bound to its own sub-account (VERIFIED).
+L11 the SDK enforces a per-session cap, the daily cap, and the balance guard
+before broadcast (VERIFIED).
+
 ## Verification cadence
 After each block: `ledger verify --block N` (second model, quoted evidence), then `ledger unwind`
 for earlier laws, follow STUCK/Δ rules. Probe (block 5): one scenario, distinct evidence per law.
