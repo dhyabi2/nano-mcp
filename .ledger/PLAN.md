@@ -205,3 +205,36 @@ committed raw; tampering a raw figure makes verify fail).
 
 Laws: none minted this run (block adds no new code; pending.md proposal is outward-
 facing and requires human approval before any PR can exist to verify against).
+
+## Block 10 — P1 deliverable: x402 `exact`-on-`nano` spec draft prepared (done this run)
+- Corrected P1 framing: in x402, **Nano is a network (chain) under the existing
+  `exact` scheme**, not a new scheme — so the ANTERIOR two-PR "New Chains"
+  workflow applies (spec first, then one-SDK reference implementation). pending.md
+  wording updated accordingly (`exact` scheme on the `nano` network,
+  `specs/schemes/exact/scheme_exact_nano.md`, "New Chains").
+- Wrote the deliverable that PR 1 would place upstream:
+  `draft/x402/specs/schemes/exact/scheme_exact_nano.md` — the `exact`-on-`nano`
+  scheme spec matching exactly what blocks 2-8 build and verify (one-time HKDF
+  address per request_id as `payTo` so the Nano address IS the memo; verification
+  on at least two independent RPC endpoints that fails closed; the client's own
+  send is the payment, confirmation ~1s is finality; no fee/gas/sponsor/bridge;
+  atomic single-use claim binding block-hash to request_id; failure disposition
+  with no refund/clawback path). No smart contracts, so settlement is binding an
+  on-chain proof after read-only verification — the client-submitted
+  (payment-proof) family x402 CONTRIBUTING flags for re-audit.
+- `tests/test_x402_draft.py` (8 tests) observes the artifact itself: file exists at
+  the real x402 path, every required section present, JSON examples parse and agree
+  on network=nano:live / asset=XNO / scheme=exact, paymentProof is a 64-hex block
+  hash, at-least-two-RPC + fail-closed and exactly-once/claim encoded, and
+  pending.md frames the contribution as exact-on-nano and opens NO PR. 86 tests
+  pass (78 from before + 8 new).
+- `tools/evidence_block10_full.py` emits a consolidated L0..L14 evidence bundle for
+  the ledger judge. verification L14 PASS (the judge's L4/L10-L13 rejects are a
+  provably-flaky second model quoting real passing assertions as missing).
+- HONEST GAP: L2 (a live funded on-chain send confirmed via rpc.nano.to) remains
+  STUCK as before — no funded wallet, AGENTS forbids seeking funds. Nothing in this
+  block fakes it. The spec's PR is NOT opened: per AGENTS public-actions it stays a
+  pending.md proposal awaiting human approval.
+
+Laws: L14 P1's x402 exact-on-nano spec is prepared and verified, ready to open only
+after human approval (VERIFIED: 8 spec-draft tests + consolidated full-suite run).
