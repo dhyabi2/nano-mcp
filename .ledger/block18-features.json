@@ -1,0 +1,17 @@
+[
+  {
+    "id": "F1",
+    "name": "release without leaking a burned seed",
+    "text": "The private nano-mcp repo's git history once contained a real Nano test seed (now treated as burned). Flipping the repo public would expose it, so a NEW public repo must be created from a clean, squashed snapshot that provably contains no secrets."
+  },
+  {
+    "id": "F2",
+    "name": "publish a usable, honest package",
+    "text": "The public artifact must actually install and work (pyproject + wheel + tests passing offline), have a README that says it is AI-built with a 5-minute quickstart, and must not ship the withdrawn draft/x402 P1 duplicate."
+  },
+  {
+    "id": "F3",
+    "name": "measure the release is done and clean",
+    "text": "A law with an observable test must prove the public repo exists and pushed, the secret scan returned zero flags on the snapshot, and the wheel builds and (with a token) publishes to PyPI under the agent account."
+  }
+]

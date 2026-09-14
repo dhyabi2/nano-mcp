@@ -1,0 +1,83 @@
+[
+ {
+  "feature": "F1",
+  "angle": 0,
+  "answer": "Replace manual exclusion with a pre-push secret-scan gate using gitleaks against the squashed snapshot. This is the single highest-leverage move to guarantee zero leaks. Core mechanism: 1) Create new public repo `nano-mcp-public`. 2) In private repo, run `git checkout --orphan clean-release && git add . && git commit -m \"Clean snapshot\"`. 3) Execute `gitleaks detect --source . --config .gitleaks.toml`. 4) If exit code != 0, abort. If 0, push `clean-release` branch to new public repo as `main`. 5) Build wheel from this verified tree; publish to PyPI. Why it beats F1: F1 relies on human judgment for exclusions (error-prone).",
+  "methodology": "Most people manually copy files and hope they missed nothing; instead, implement an automated CI gate that runs a secret scanner (like gitleaks) against the squashed snapshot before allowing the PyPI publish or GitHub push; because this provides cryptographic/automated proof of absence rather than relying on fallible human inspection.",
+  "baseline": "Create new repo, copy files, manually check for secrets, push.",
+  "error": null,
+  "n": 0
+ },
+ {
+  "feature": "F1",
+  "angle": 1,
+  "answer": "The orphan branch method is the critical control: it mechanically guarantees no historical objects exist in the new remote. To execute, create a fresh public repo via `gh repo create`. In the private repo, run `git checkout --orphan clean-snap && git add -A && git commit -m \"Initial public release\"` to strip all history, ensuring the burned seed is unrecoverable. Verify zero secrets by running `gitleaks detect --source . --no-git`; fix any hits before proceeding. Push only this branch using `git push -f https://github.com/PANDeveloper001/nano-mcp-public.git clean-snap:main`. Finally, publish to PyPI with `twine upload dist/*` using your API token.",
+  "methodology": "Most people manually copy files to a new repo; instead use `git checkout --orphan` to create a history-free snapshot, then push to the new public repo; because this mechanically guarantees no prior commit (and thus no burned seed) exists in the new repository's object store.",
+  "baseline": "Manually create a new repo, copy files excluding .git, and push.",
+  "error": null,
+  "n": 1
+ },
+ {
+  "feature": "F1",
+  "angle": 2,
+  "answer": "Weakness: Manual exclusion (.gitignore/git rm) risks human error; no proof the squashed tree is secret-free before public push.\n\nFix: Enforce a deterministic, automated gate. After creating the clean snapshot locally (before `git push`), run `gitleaks detect --source . --config .gitleaks.toml`. This scans the actual file tree for secrets, not just history. If it returns non-zero exit code, abort publication. Only proceed to create the new GitHub repo and push if gitleaks passes. This shifts trust from manual diligence to machine verification, ensuring zero secrets are exposed in the public release.",
+  "methodology": "Most people rely on manual file exclusion and hope the squashed snapshot is clean; instead, implement an automated secret scanner (like gitleaks) as a mandatory pre-push or CI gate on the new public repo; because this provides cryptographic proof of absence rather than just relying on the correctness of the squash command.",
+  "baseline": "Weakness: manual exclusion of files; Fix: use .gitignore.",
+  "error": null,
+  "n": 2
+ },
+ {
+  "feature": "F2",
+  "angle": 0,
+  "answer": "Deterministic Offline Proof-of-Payment replaces flaky faucet/mock-RPC dependencies with a bundled, cryptographically verifiable testnet snapshot and pure-Python Nano signature verifier. The nano-mcp-init script loads local ledger state instead of hitting external RPCs, while CI runs the full MCP handshake against this offline fixture. This guarantees 100% reproducibility and zero external network dependencies, proving protocol logic works without relying on unstable third-party infrastructure for robust automated agent integration.",
+  "methodology": "Most people focus on hygiene (cleaning/secrets); instead provide a frictionless onboarding kit with pre-funded test accounts and instant-start scripts; because agent adoption depends on immediate utility and zero-setup barriers, not just code cleanliness.",
+  "baseline": "Strictly adhere to the 'clean public release' checklist: create repo, scrub secrets, exclude drafts, publish wheel, ensure tests pass.",
+  "error": null,
+  "n": 3
+ },
+ {
+  "feature": "F2",
+  "angle": 1,
+  "answer": "Ship a `release_gate.py` script enforcing an allowlist copy + regex secret scan (burned seed) + offline pytest. Run locally: `python release_gate.py --push`. It creates a clean orphan branch, verifies zero secrets/tests pass, then pushes to the new public repo and uploads the wheel to PyPI. This automates the 'clean snapshot' requirement, ensuring the burned seed never leaks while making the gate reproducible. Hedge: GitHub/PyPI API rate limits may block automated pushes; fallback is manual trigger if CI fails.",
+  "methodology": "Most people manually curate the public repo; instead use a deterministic 'clean-release' script that filters files via explicit allowlists, scans for secrets using regex patterns specific to Nano seeds, runs offline tests, and pushes only if all gates pass; because this removes human error from the critical path of separating private history from public artifacts.",
+  "baseline": "Manually create a new repo, copy files, check for secrets, and publish.",
+  "error": null,
+  "n": 4
+ },
+ {
+  "feature": "F2",
+  "angle": 2,
+  "answer": "PyPI builds from the working directory, not git history, so untracked files like burned seeds or withdrawn drafts leak into wheels regardless of .gitignore. Fix: Build exclusively from a clean, isolated snapshot. Execute: 1. `git archive HEAD | tar -x -C /tmp/nano-mcp-clean` 2. `cd /tmp/nano-mcp-clean && python -m build` 3. Publish artifacts from this temp dir only. This guarantees zero untracked secrets or excluded drafts enter the package. Verify with `tar tzf dist/*.tar.gz` before upload. Ensure `pyproject.toml` correctly excludes dev-only deps; test install via `pip install ./dist/*.whl` in a fresh venv to catch runtime import errors.",
+  "methodology": "Most people focus on excluding files via gitignore or manual checks; instead, ensure the build process uses a clean, isolated snapshot (e.g., `git archive` or fresh clone) to generate the wheel; because this prevents 'dirty' artifacts containing withdrawn drafts or local caches that bypass standard exclusion rules.",
+  "baseline": "The biggest weakness is the risk of leaking secrets or publishing broken code; fix it by running a manual grep for keys and executing tests before push.",
+  "error": null,
+  "n": 5
+ },
+ {
+  "feature": "F3",
+  "angle": 0,
+  "answer": "F3 proves existence, not function. A clean wheel is trivial; a working MCP server paying via Nano is the product. Replace static checks with an End-to-End Sandbox Settlement Proof: 1) Spin up isolated Docker with `nano-mcp` from PyPI. 2) Connect to testnet. 3) Execute one real API call triggering XNO payment. 4) Assert transaction hash exists on ledger AND balance decreases by exact fee. Only pass Gate 2 if this succeeds. Static scans miss runtime config errors, broken entry points, or network timeouts. This verifies the core value proposition (pay-per-call) functions in production-like conditions. If the agent can't pay, the release is useless regardless of code cleanliness.",
+  "methodology": "Most people verify artifacts exist; instead run an end-to-end consumer smoke test; because it proves the package is actually usable by agents, catching integration failures static checks miss.",
+  "baseline": "Verify repo exists, secrets are clean, and PyPI publish succeeds.",
+  "error": null,
+  "n": 6
+ },
+ {
+  "feature": "F3",
+  "angle": 1,
+  "answer": "Replace on-chain contracts with a deterministic CI/CD gate enforcing 'Release Law' via GitHub Actions. The pipeline fails if any check misses, emitting signed artifacts for an immutable audit trail without blockchain gas costs. Steps: 1) Verify repo existence (HTTP 200). 2) Scan secrets using gitleaks; exit code 0 required. 3) Build wheel, publish to PyPI via twine, and poll the PyPI JSON endpoint until the version appears. If all pass, tag the commit and archive logs. To handle PyPI propagation delays and prevent false negatives, implement exponential backoff polling capped at five minutes before failing.",
+  "methodology": "Most people manually verify releases; instead mint a cryptographic 'law' on the ledger that atomically proves the public repo exists, secrets are absent, and PyPI upload succeeded; because this transforms subjective release confidence into an objective, machine-readable state transition.",
+  "baseline": "Manually create repo, run secret scan, build wheel, publish to PyPI.",
+  "error": null,
+  "n": 7
+ },
+ {
+  "feature": "F3",
+  "angle": 2,
+  "answer": "Weakness: Local snapshot verification misses remote state drift (e.g., .gitignore changes, partial pushes). Fix: Clone the live public repo into a temp dir and re-run the secret scan on that content. This proves the actual published artifact is clean. Execute: `git clone <new-repo-url> /tmp/verify && trufflehog filesystem /tmp/verify`. If zero flags, the gate passes.",
+  "methodology": "Most people assume scanning the local build artifact proves the public repo is clean; instead, verify the remote repository's actual content post-push because the local-to-remote transfer introduces failure modes (partial pushes, gitignore discrepancies) that local scans miss.",
+  "baseline": "The weakness is that the test might fail to detect secrets if they are not in standard locations or formats.",
+  "error": null,
+  "n": 8
+ }
+]

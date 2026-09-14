@@ -1,0 +1,13 @@
+Stage-gate-2 public release scenario (block 18), exercising L25 and L26 end to end:
+
+1. From the LIVE public repo https://github.com/PANDeveloper001/nano-mcp-public (branch main),
+   git clone it fresh into a clean temp dir.
+2. L25: assert the clone has exactly ONE commit (git log --oneline | wc -l == 1) and 70 files
+   (git ls-files | wc -l); run the secret scan /tmp/secret_scan2.py on the clone and assert it
+   returns "CLEAN - 0 real-secret hits" (no .env/.db/.key files, no literal seed/private-key
+   assignments; all 64-hex values are documented public vectors or public block hashes).
+   Assert the private repo /root/nano-agent/nano-mcp HEAD is unchanged (d266b034...).
+3. L26: in the clone, uv venv + source; uv pip install -e ".[dev]"; run
+   python -m pytest -m "not network" -q and assert >=120 passed and 0 failures;
+   then uv build --out-dir dist . and assert dist/nano_mcp-0.1.0-py3-none-any.whl exists.
+4. Every claim above is backed by real command output quoted from this run; no fabricated numbers.

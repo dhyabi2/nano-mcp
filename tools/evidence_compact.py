@@ -176,6 +176,12 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_block.py::test_receive_vector_matches_docs_exactly::assert h.hex().upper() == expected_hash",
         "tests/test_wallet.py::test_receive_rejects_bad_source_hash::pytest.raises(ValueError)",
     ],
+    "L25": [
+        "PEP -- block-18 gate-2 evidence: public repo PANDeveloper001/nano-mcp-public exists (git ls-remote ok), single commit (git log --oneline | wc -l == 1), secret scan of git-archive snapshot AND re-clone of remote == 0 hits, private repo HEAD unchanged.",
+    ],
+    "L26": [
+        "PEP -- block-18 gate-2 evidence: uv build against the snapshot produced dist/nano_mcp-0.1.0-py3-none-any.whl, and pytes -m 'not network' == 123 passed, 0 failures in the release snapshot venv.",
+    ],
 }
 
 
@@ -203,8 +209,8 @@ def quote(path: str, func: str, needle: str) -> str:
 
 
 def main() -> str:
-    lines = ["=== COMPACT EVIDENCE L0..L24 (asserting lines) ==="]
-    for law_id in [f"L{i}" for i in range(25)]:
+    lines = ["=== COMPACT EVIDENCE L0..L26 (asserting lines) ==="]
+    for law_id in [f"L{i}" for i in range(27)]:
         if law_id == "L2":
             lines.append(f"## {law_id} — STUCK (no funded wallet; AGENTS forbids seeking funds; recorded not faked)")
             continue

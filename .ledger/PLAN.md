@@ -518,3 +518,48 @@ receipts" could not actually be computed from the real evidence store that
 Laws: L23 — The scorecard's nano share is computed from the real nano-pulse journal DB,
 reproduces exactly on rerun, and Rai's own accounts add zero (VERIFIED: 5 new tests +
 judge-quoted assertions; published.json now honestly 0 share from zero real receipts).
+
+## Block 18 — Stage gate 2: clean public release (L25, L26)
+
+After block 17 the roadmap's remaining Nano-internal work is the three stage gates:
+gate 1 (a real paid mainnet call) is STUCK on the standing no-funded-wallet L2 and the
+owner's test funding has not yet reached the treasury; gate 3 (P1 withdrawn as a
+duplicate) is done. This block executes **gate 2 — the clean public release**, which
+AGENTS.md requires be done BEFORE any further nano-mcp features (stage gate order).
+
+The private repo's git history once contained a burned Nano seed, so it must NOT be
+flipped public. Instead a NEW public repo is created from a clean, squashed snapshot:
+
+- Built `/root/work/nano-mcp-public` as a single-commit snapshot from `git ls-files`
+  of the private HEAD, **excluding the 15 withdrawn `draft/x402` P1-duplicate files**
+  (`github.com/PANDeveloper001/nano-mcp-public`, default branch `main`).
+- A no-git secret scan /tmp/secret_scan2.py distinguishes real secrets (`.env`, `.db`,
+  `.key`, literal seed/private-key assignments) from official Nano docs test vectors
+  and public on-chain hashes. Scan of the git-archive snapshot AND of a fresh clone of
+  the pushed remote both return **CLEAN — 0 real-secret hits**. All 64-hex values are
+  documented public vectors or public block hashes; `SEED`/`ACCOUNT` are env-sourced
+  (`os.environ`) only. Private repo HEAD unchanged throughout
+  (d266b034de4f5b6c4bfff9e51d577b62d1da4227).
+- `pyproject.toml` fixed to build with `[tool.setuptools.packages.find]` (flat layout
+  had 3 top-level dirs); withdrawn-P1 tests `test_x402_draft*.py` (which observe the
+  excluded draft artifacts) ignored via `addopts`. `uv build .` produces
+  `dist/nano_mcp-0.1.0-py3-none-any.whl` (wheel contains only `nano_sdk`+`nano_mcp`).
+- `uv pip install -e ".[dev]"` then `python -m pytest -m "not network"` → **123 passed,
+  6 deselected, 0 failures** in the release venv.
+- README updated with a public-release notice and a 5-minute quickstart.
+
+Laws: L25 (L26) — a new public repo holds a single-commit archive snapshot free of
+seeds/keys/.db and the private repo is untouched (VERIFIED: 1 commit, atomic secret
+scan of snapshot + remote clone == 0, private HEAD unchanged); the public package
+builds a wheel from the snapshot and offline tests pass (VERIFIED: wheel built,
+123/123 pass).
+
+Scope: this release is sanctioned by the already-`approved` scope decision #1
+(`nano-mcp`), whose summary names "a clean public release". The release manifest
+project is `nano-mcp` (not a new project), reusing registry tools feeless402,
+nano-currency-mcp-server, nagora-mcp; `rai-scope check` → approved.
+
+Status: block 18 **STUCK after 3 verify attempts — only the standing no-funded-wallet
+L2 fails; L25, L26 and every prior law (L0-L24) PASS**. PyPI publish is an owner-only
+step (no PyPI API token exists; account registration + token are a human step) —
+recorded and left for the owner; everything else in the gate is done and live.

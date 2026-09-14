@@ -1,0 +1,52 @@
+=== BLOCK 18 (gate 2 public release) EVIDENCE — L25, L26 ===
+
+## L25 — A new public repo holds a single-commit archive snapshot free of seeds, keys and .db files, private repo untouched.
+
+Command: git -C /root/work/nano-mcp-public log --oneline | wc -l
+Output: 1
+(commit message: "nano-mcp public release: squashed clean snapshot (single commit)")
+=> the public snapshot repo has exactly ONE commit — no git history, so the
+   private repo's burned seed (which lived in the private git history) cannot
+   be present in the public object store.
+
+Command: git -C /root/work/nano-mcp-public ls-files | wc -l
+Output: 70
+=> 70 tracked files; the 15 withdrawn draft/x402 P1-duplicate files excluded.
+
+Secret scan (python3 /tmp/secret_scan2.py) on the git-archive of HEAD:
+Command: cd /root/work/nano-mcp-public && git archive --format=tar HEAD | tar -x -C /tmp/snapshot-scan-fin && python3 /tmp/secret_scan2.py /tmp/snapshot-scan-fin
+Output: RESULT: CLEAN - 0 real-secret hits (all 64-hex values are documented public vectors or public block hashes)
+        Verified: no .env/.db/.key/.pem files; no literal real seed/private-key assignments;
+        SEED/ACCOUNT in code are env-sourced (os.environ) only - never a literal.
+        extracted 70 files
+
+Secret scan on a FRESH CLONE of the pushed remote (what is actually public):
+Command: git clone https://github.com/PANDeveloper001/nano-mcp-public.git /tmp/remote-clone-check && python3 /tmp/secret_scan2.py /tmp/remote-clone-check
+Output: RESULT: CLEAN - 0 real-secret hits
+        Verified: no .env/.db/.key/.pem files; no literal real seed/private-key assignments
+
+Private repo untouched:
+Command: git -C /root/nano-agent/nano-mcp rev-parse HEAD  [before=d266b034de4f5b6c4bfff9e51d577b62d1da4227]
+Output: d266b034de4f5b6c4bfff9e51d577b62d1da4227
+=> PRIVATE REPO HEAD UNCHANGED — the private repo (and its burned-seed history) was not flipped public, not rewritten, and not pushed.
+
+Public repo existence:
+Command: rai-scope check ... approved; GitHub API POST /user/repos -> 201; repo public (private:False, default_branch:main)
+Remote: https://github.com/PANDeveloper001/nano-mcp-public.git
+
+## L26 — The public package builds a wheel from the archive snapshot and offline tests pass.
+
+Command: cd /root/work/nano-mcp-public && uv build --out-dir dist .
+Output: Successfully built dist/nano_mcp-0.1.0.tar.gz
+        Successfully built dist/nano_mcp-0.1.0-py3-none-any.whl
+Wheel contents check: python3 -c "import zipfile...assert 'draft' not in n and 'scorecard/' not in n and 'tests/' not in n and '.env' not in n and 'receive_funding' not in n"
+Output: WHEEL CLEAN: only nano_sdk+nano_mcp packages
+
+Command: cd /root/work/nano-mcp-public && source .venv/bin/activate && python -m pytest -m "not network" -q
+Output: 123 passed, 6 deselected in 22.60s  (0 failures)
+(Withdrawn P1 test modules test_x402_draft*.py excluded via pyproject addopts, as those observe withdrawn draft artifacts not part of this release.)
+
+Command: python -m pytest -m "not network" -q  (release venv)
+Output: 123 passed ... (0 failures)
+
+=== END BLOCK 18 EVIDENCE ===
