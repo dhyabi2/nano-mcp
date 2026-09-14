@@ -1,0 +1,27 @@
+End-to-end pay-per-call probe for nano-mcp (block 5).
+
+Scenario: one agent pays one service in Nano and gets the gated tool result, then
+re-calls with the SAME request_id and observes NO double execution.
+
+Components exercised by DISTINCT variables:
+  L0/L3 SDK path:  an SDK Wallet (nano_sdk.wallet.Wallet) signs a send to the
+                   one-time address; balance/frontier/process come from a stub
+                   standing in for rpc.nano.to (no funded wallet exists, and the
+                   AGENTS rules forbid seeking funds — the live-funded leg is the
+                   recorded L2/L3 STUCK; the signing/hash/process path is what
+                   drives the stub, EXACTLY as in tests/test_wallet.py).
+  L4 one-time addr: MCP tool `quote` derives the payment address from the server
+                   master secret via HKDF-SHA256 -> Ed25519 -> nano_ address.
+  L5 exactly-once:  MCP tool `verify_payment(request_id, amount_raw)` approves
+                   only after a matching on-chain `receive` is seen on that one
+                   time address; a repeat returns status='spent'.
+  L6 replay-safe:   the same request_id yields exactly one approval / executes the
+                   gated result once and never twice.
+  L7 evidence gate: the external payer (not in NANO_AGENT_OWN_ACCOUNTS) is
+                   journaled as one `nano_tx` row; the owner account is never
+                   journaled (gate returns False, zero rows).
+
+Honest scope: no real XNO moves in this probe (no funded wallet, funds forbidden).
+It proves the end-to-end WIRING of SDK -> MCP one-time-address -> exactly-once
+verify -> gated single execution -> evidence journal on the chain stub; the real
+on-chain funded confirmation remains the recorded STUCK (L2/L3).

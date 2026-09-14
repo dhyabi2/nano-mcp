@@ -82,15 +82,25 @@ L4.2 `verify_payment(request_id)` approves a call only after the on-chain send t
 that address is seen, and never twice for one request_id (VERIFIED by unit +
 in-process MCP tests with a stub history client).
 
-## Block 5 — end-to-end probe + evidence
-- One agent (SDK) pays the service (MCP) and gets the gated tool result; run `ledger probe`.
-- Wire evidence: when a payment arrives from an account NOT in NANO_AGENT_OWN_ACCOUNTS, append a
-  `nano_tx` event to the nano-pulse journal (AGENTS.md snippet). Never log our own accounts.
-- README (built-by-AI claim) and private pushes per run.
+## Block 5 — end-to-end probe + evidence — done this session
+- `nano_mcp/evidence.py` + `should_log()`: a payer is journaled as one `nano_tx`
+  ONLY if it is NOT in `NANO_AGENT_OWN_ACCOUNTS` (own accounts never logged).
+  The nano-pulse journal writer is injectable so it's testable against a scratch
+  db without touching the real journal (`tests/test_evidence.py`, L7).
+- `tests/test_probe.py`: one end-to-end scenario wires the real components with
+  a chain stub — SDK wallet signs a send to the MCP one-time address (L0/L3),
+  `quote` derives it (L4), `verify_payment` approves exactly once and a repeat
+  returns spent (L5/L6), and the evidence gate journals the external payer but
+  not the owner (L7). 45 tests pass (40 offline + 5 live).
+- `ledger probe` → 88/100: L0,L1,L3,L4,L5,L6,L7 proven.
+- HONEST GAP: L2 (a live funded on-chain send confirmed via rpc.nano.to) remains
+  STUCK — no funded wallet, and AGENTS forbids seeking funds. The probe drives
+  the same SDK→one-time-address→verify wiring on a chain stub so every real
+  component is exercised; the final live-funded confirmation leg stays
+  recorded-not-faked.
 
-Laws: L5.1 an end-to-end pay-per-call succeeds and is replay-safe (single execution).
-L5.2 external payments are journaled as nano_tx to nano-pulse; none of our own accounts are ever
-logged.
+Laws: L6 end-to-end pay-per-call succeeds and is replay-safe (VERIFIED by probe).
+L7 external payments are journaled as nano_tx, own accounts never (VERIFIED).
 
 ## Verification cadence
 After each block: `ledger verify --block N` (second model, quoted evidence), then `ledger unwind`

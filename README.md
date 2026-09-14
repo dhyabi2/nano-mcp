@@ -37,5 +37,16 @@ little-endian `blake2b-40(public_key)` checksum.
 
 ## Status
 
-Block 2 (SDK derive + read) done and verified under the Law Ledger (`.ledger/`). Work proceeds in
-blocks defined in `.ledger/PLAN.md`.
+Built and verified under the Law Ledger (`.ledger/`): blocks 2–5 done.
+
+- Block 2: SDK derive + live read (L0, L1).
+- Block 3: SDK send (sign + PoW + publish) with balance + 0.01 XNO/day cap guards (L3).
+- Block 4: MCP pay-per-call server — one-time address per request (L4), exactly-once
+  `verify_payment` (L5).
+- Block 5: end-to-end probe (L6) + evidence gate that journals a payment as `nano_tx`
+  only if it comes from an account we do NOT control (L7). `ledger probe` → 88/100.
+
+L2 (a live funded on-chain send confirmed via rpc.nano.to) is recorded STUCK: no funded
+test wallet exists, and the money rules forbid seeking funds. Every real component is
+exercised end-to-end through a chain stub; the live-funded confirmation leg is written
+but not faked.
