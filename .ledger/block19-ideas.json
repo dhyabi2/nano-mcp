@@ -1,0 +1,137 @@
+[
+ {
+  "feature": "F1",
+  "angle": 0,
+  "answer": "F2: Atomic Ledger-Proof Receipt. Replace blind polling with a cryptographic state proof. 1) Broadcast open block via `rpc.nano.to`. 2) Immediately query two independent nodes for the *block hash* AND its *previous link*. 3) Verify both return identical hashes and that the previous link matches the pending send block's destination. 4) Only mark funded if consensus is reached on the exact block identity, not just balance delta. This eliminates fork/lag ambiguity by validating chain continuity rather than transient state, providing irrefutable evidence for Stage Gate 1.",
+  "methodology": "Most people rely on single-RPC polling to confirm receipt; instead use dual-independent RPC verification with immediate hash cross-checking; because this eliminates false positives from node lag or transient forks and ensures 'real funded evidence' as required by the goal.",
+  "baseline": "Broadcast open block with PoW on account key, then poll history.",
+  "error": null,
+  "n": 0
+ },
+ {
+  "feature": "F1",
+  "angle": 1,
+  "answer": "**THE MOVE: Idempotent Receive Handler.**\n\n1. **Check State:** Query treasury history via RPC for block `B42D...FB`. If present, stop (already received).\n2. **Build & Sign:** Construct open/receive block using PoW root = account pubkey (`nano_1yo6c...mnx7`). Sign locally with treasury key.\n3. **Broadcast:** Publish to two independent RPCs simultaneously.\n4. **Verify:** Poll both until the block hash appears in confirmed history on both nodes.\n\nThis ensures single-settlement integrity and safe retries. \n\n**Hedge:** RPC latency may cause false negatives; implement exponential backoff polling up to 5 mins before alerting.",
+  "methodology": "Most people manually build/sign/broadcast blocks risking duplicates on failure; instead implement an idempotent state machine that queries account history for the specific pending block hash before attempting construction; because this ensures the program can safely retry without violating consensus rules or wasting resources.",
+  "baseline": "Manually construct the receive block, sign it with a CLI tool, and broadcast via curl.",
+  "error": null,
+  "n": 1
+ },
+ {
+  "feature": "F1",
+  "angle": 2,
+  "answer": "Blindly applying standard receive logic ignores that Open Blocks require the Account Public Key as the PoW work root, causing silent broadcast failure. Fix: Integrate with Wallet.receive to explicitly detect if the treasury has no history. If so, force work_root = account_pub_key; otherwise use previous hash. This ensures valid signing for the pending send B42D35... into nano_1yo6c.... Immediately after publishing, confirm the receive on two independent RPCs to verify propagation. Then, execute ONE real funded paid mainnet call via nano-mcp, spending the smallest amount, and journal tx hashes externally. Finally, re-verify L2 laws against this real funded evidence to close Stage Gate 1.",
+  "methodology": "Most people assume standard receive logic applies universally; instead, explicitly distinguish that Open Blocks (first block) use the Account Public Key as the Work Root, while subsequent Receive Blocks use the Previous Block Hash; because using the wrong root results in an invalid block that will never propagate.",
+  "baseline": "The biggest weakness is the risk of broadcasting an invalid block due to incorrect PoW work roots or signature errors, which causes a permanent failure state if not handled correctly.",
+  "error": null,
+  "n": 2
+ },
+ {
+  "feature": "F1",
+  "angle": 3,
+  "answer": "Tool: Dual-RPC Settlement Gate\nCore Loop:\n1. Rebuild receive block using correct PoW root (account pubkey for open blocks) and sign locally.\n2. Broadcast to Primary RPC; poll Secondary independent RPC until block hash appears in history on BOTH.\n3. Only upon dual-confirmation, execute minimal paid mainnet call via nano-mcp.\n4. Verify payment tx existence on both RPCs; reject if single-source or missing.\n5. Append immutable journal entry with tx hashes + timestamps as sole pass evidence.\nThis ensures no fake passes by enforcing cryptographic settlement across independent nodes before any tool execution.",
+  "methodology": "Most people manually verify funding and spend separately; instead build an automated 'Settlement Sentinel' that gates every action on dual-RPC confirmation; because this eliminates trust assumptions in single-node responses and ensures only cryptographically verified state changes are logged as success.",
+  "baseline": "A manual script that calls the wallet receive function and then runs a single paid tool call, logging the result.",
+  "error": null,
+  "n": 3
+ },
+ {
+  "feature": "F1",
+  "angle": 4,
+  "answer": "Deploy a Hardware-Backed 'Ledger Anchor' for Stage Gate 1. Immediately after broadcasting the receive block (B42D35...), have the resource server sign a JSON payload containing the new block hash, timestamp, and treasury address using a TPM/Secure Enclave key. Publish this signed attestation to an immutable public log (e.g., IPFS + GitHub commit) *before* executing the paid call. This creates a non-repudiable, cryptographically sealed link between the funding event and service consumption, eliminating trust gaps in server-side journaling. Verify by checking the signature against the hardware key's public certificate.",
+  "methodology": "Most people rely on standard RPC verification for block confirmation; instead, implement a 'Remote Attestation' mechanism inspired by Trusted Execution Environments (TEE) where the resource server generates a cryptographic proof-of-execution signed by a hardware-backed key (or simulated via a secure enclave) that binds the specific block hash to the payment receipt; because this creates a non-repudiable, cryptographically sealed link between the funding event and the service consumption, eliminating the trust gap between the buyer's claim and the server's log.",
+  "baseline": "Use standard RPC calls to verify the receive block on two independent nodes and then execute a paid tool call, logging the transaction hashes manually.",
+  "error": null,
+  "n": 4
+ },
+ {
+  "feature": "F2",
+  "angle": 0,
+  "answer": "Deterministic Frontier-Verified Settlement replaces dual-RPC polling with a single-source-of-truth check against the treasury's specific frontier block hash (B42D35136339688A1E1AA8A5E07F5C95C15A7E806D2EE803D293B3BEE52010FB) using nano_rpc's block_info. The Resource Server verifies the send block links directly to this exact frontier and confirms finality via confirm_count >= 2 on one trusted node, then atomically releases the result only if the ledger state matches the pre-calculated work root for that specific receive. This approach eliminates the race conditions inherent in dual-RPC polling, where RPCs may disagree on pending versus confirmed states during re-orgs or latency spikes.",
+  "methodology": "Most people rely on dual-RPC polling for settlement; instead, implement an Atomic Settlement Guarantee using a pre-signed callback or hash-lock mechanism; because polling is susceptible to race conditions and finality delays that can lead to double-spending or service denial even with multiple nodes.",
+  "baseline": "Feature F2: A single paid mainnet call where the resource server verifies the transaction on two independent RPCs and settles it exactly once.",
+  "error": null,
+  "n": 5
+ },
+ {
+  "feature": "F2",
+  "angle": 1,
+  "answer": "Implement an idempotent settlement service keyed by a unique cryptographic request ID. The ResourceApp verifies the send block on two independent RPCs but only settles if the ID is unprocessed, ensuring safe programmatic retries without double-spending. This preserves value while enabling reproducibility. Log tx hashes against this ID for auditability.",
+  "methodology": "Most people rely on manual or linear execution; instead implement an idempotent settlement service using unique request keys to verify on two RPCs and settle exactly once; because this ensures reproducibility and prevents double-settlement during programmatic retries.",
+  "baseline": "Manually execute the transaction and record it in a log file.",
+  "error": null,
+  "n": 6
+ },
+ {
+  "feature": "F2",
+  "angle": 2,
+  "answer": "The critical vulnerability is source verification. Confirming a block exists via RPCs only proves broadcast, not origin; attackers can replay valid mainnet sends to trigger service without using your funds. The fix requires strict sender-identity validation before settlement. The ResourceApp must verify that the `previous` field of the incoming send block resolves specifically to the treasury account hash (`nano_1yo6c...mnx7`) on both independent RPCs. Do not merely check for block existence; validate who signed it. If the sender does not match the treasury, reject immediately.",
+  "methodology": "Most people focus on RPC reliability or latency; instead, implement an idempotent settlement ledger with atomic state transitions keyed by the transaction hash; because verifying existence is not the same as guaranteeing single-execution in a distributed system prone to races and restarts.",
+  "baseline": "The biggest weakness is network latency or RPC downtime causing the verification to fail, and the fix is adding more fallback RPCs.",
+  "error": null,
+  "n": 7
+ },
+ {
+  "feature": "F2",
+  "angle": 3,
+  "answer": "Tool: AtomicNanoGate\nCore Loop: 1. Buyer requests payTo; Treasury sends exact XNO to block B42D... 2. Facilitator polls two independent RPCs for consensus on the receive block. 3. On agreement, verify source/amount against pending send. 4. Settle state atomically (record tx hashes externally). 5. Release protected resource exactly once.\nWhy: Enforces 'settle exactly once' via dual-RPC consensus, closing the gap between funding receipt and verified service delivery without trusting a single node.\nHedge: RPC latency variance may cause false negatives in consensus checks; implement exponential backoff with a hard timeout that fails open only if both RPCs agree on non-existence.",
+  "methodology": "Most people build a simple send-and-wait script; instead build an 'Atomic Nano-Gate' tool that enforces a dual-RPC verification step before releasing the paid resource and journaling the hash; because this eliminates the race condition between payment confirmation and service access, ensuring honest settlement.",
+  "baseline": "A simple script that sends funds and waits for confirmation.",
+  "error": null,
+  "n": 8
+ },
+ {
+  "feature": "F2",
+  "angle": 4,
+  "answer": "Execute paid calls using Two-Phase Commit with Atomic Settlement to guarantee exactly-once settlement under network partitions. Treat RPC confirmation as a PREPARE vote, with the Resource Server acting as Coordinator. Query two independent RPCs for the send transaction; if both return identical block hashes and heights, issue COMMIT to serve the tool and log the tx hash in an append-only journal. If they diverge or timeout, issue ABORT, leaving funds untouched and preventing double-spending exploits from lagging forks. Steps: Rebuild receive block, wait for 2 independent confirmations, get payTo/amount, send exact XNO, poll 2 RPCs for send tx.",
+  "methodology": "Most people rely on simple multi-sig or basic double-RPC checks; instead, implement a Thermodynamic Entropy Check where the resource server calculates the 'signal-to-noise ratio' of the transaction's propagation across independent RPCs, treating divergent mempool states as 'noise' and only settling when the transaction's hash achieves a low-entropy consensus state (identical block height and confirmation count across all probes); because this quantifies the robustness of the 'truth' of the transaction beyond simple existence, preventing race conditions or fork-induced false positives.",
+  "baseline": "Use a standard multi-sig escrow or simple double-check RPC verification for the paid call.",
+  "error": null,
+  "n": 9
+ },
+ {
+  "feature": "F3",
+  "angle": 0,
+  "answer": "Name: Deterministic Settlement Attestation. Mechanism: Execute the paid call, then cryptographically sign a JSON receipt containing both RPC block hashes, tx IDs, and timestamps. Broadcast this signed receipt as a separate, verifiable artifact. Why it beats original: Self-payment risks violating 'exactly once' settlement logic or creating circular dependencies in resource servers. A signed attestation provides external, non-repudiable proof of successful multi-RPC verification and settlement without relying on counterparty behavior or risking state corruption, ensuring the scorecard reflects true protocol integrity.",
+  "methodology": "Most people verify L2 by executing a standard paid call to an external resource; instead, execute a 'Self-Payment Settlement Proof' where the treasury pays itself via the MCP tool interface; because this isolates the ledger mechanics (broadcast/confirm) from network effects, proving the law holds even if no one else adopts, while strictly adhering to the 'no fake adoption' constraint.",
+  "baseline": "Re-verify L2 by sending a standard paid transaction and confirming it on-chain.",
+  "error": null,
+  "n": 10
+ },
+ {
+  "feature": "F3",
+  "angle": 1,
+  "answer": "Implement a deterministic verification state machine. Define strict transitions: Pending -> Funded (verified by two independent RPCs confirming B42D... hash into treasury) -> L2 Active (signed send confirmed). The program executes these steps, comparing actual block hashes against expected values at each gate. If any check fails, it halts and reports the specific mismatch. This makes the 'no-faked-pass' rule executable code rather than human judgment, ensuring reproducibility and control.",
+  "methodology": "Most people manually observe the ledger transition; instead implement a deterministic verification state machine that programmatically asserts pending->funded->L2 transitions via dual-RPC hash matching; because this removes human bias from the pass/fail decision and makes the 'no-fake' constraint executable and reproducible.",
+  "baseline": "Manually verify the funding and L2 laws by observing the block explorer and running a script once, then declaring success based on human interpretation of the output.",
+  "error": null,
+  "n": 11
+ },
+ {
+  "feature": "F3",
+  "angle": 2,
+  "answer": "WEAKNESS: The 'no-funded' cache is the single point of failure. If not explicitly invalidated upon receipt confirmation, L2 verification silently reuses stale negative states, faking a pass without real evidence.\n\nFIX: Enforce atomic cache invalidation. On first valid receive block (confirmed via 2 independent RPCs), immediately purge all 'no-funded' flags for target accounts. Subsequent paid calls must fail-closed if any prior state remains cached; only fresh, dual-RPC verified ledger reads count as evidence. This ensures funding arrival triggers mandatory re-verification, preventing false negatives from persisting into the settlement phase.",
+  "methodology": "Most people assume the weakness is external (funds not arriving); instead, the critical weakness is internal validation logic potentially trusting stale 'no-funded' states or failing to enforce dual-RPC consensus; because this leads to false positives/negatives in L2 verification which breaks the core honesty guarantee.",
+  "baseline": "Weakness: The owner might not send the funds. Fix: Wait for confirmation before proceeding.",
+  "error": null,
+  "n": 12
+ },
+ {
+  "feature": "F3",
+  "angle": 3,
+  "answer": "Tool: FundedProof. Core loop: 1) Confirm receive B42D... on two RPCs (funding is input, not proof). 2) Execute one minimal paid mainnet call via nano-mcp. 3) Verify settlement hash on two independent RPCs. 4) Assert L2/no-funded-wallet laws against this specific tx hash. 5) Unwind/probe to ensure no fake passes. Key principle: Only a confirmed, paid transaction hash constitutes evidence; funding received never counts as goal achievement.",
+  "methodology": "Most people check for funds and assume functionality; instead build a tool that treats real spending as the only valid state transition; because economic commitment cannot be faked without loss.",
+  "baseline": "A simple script that checks if the wallet has funds and then runs a manual test.",
+  "error": null,
+  "n": 13
+ },
+ {
+  "feature": "F3",
+  "angle": 4,
+  "answer": "Implement a Merkle-Proof Receipt Chain. Instead of just logging the paid call, generate a cryptographic receipt: hash(ReceiveBlockHash + PaidTxHash + Timestamp). Store this on an immutable ledger (e.g., Arweave) or timestamped server. This creates a non-repudiable audit trail proving L2 verification occurred *after* funding confirmation, satisfying 'real funded evidence' without faking. It binds the causal history of settlement to the payment execution. Hedge: Ensure RPC agreement logic is deterministic; if nodes disagree, halt and alert rather than guessing.",
+  "methodology": "Most people use simple boolean checks (true/false) for RPC confirmation; instead implement Lamport Clock Gating where the treasury state machine increments a logical clock only upon independent RPC consensus, and the paid tool call is cryptographically bound to that specific clock value; this prevents replay attacks and ensures the 'funded' status is causally linked to the exact moment of verification, not just a static flag.",
+  "baseline": "Use a standard multi-sig or 2-of-3 RPC check to verify the funding block before executing the paid call.",
+  "error": null,
+  "n": 14
+ }
+]

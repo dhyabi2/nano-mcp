@@ -192,6 +192,20 @@
    "statement": "The public package builds a wheel from the archive snapshot and offline tests pass.",
    "test": "python -m build produces dist/*.whl from snapshot; pytest -m 'not network' == 0 failures",
    "minted": "2026-09-14T17:14:49+00:00"
+  },
+  {
+   "id": "L27",
+   "block": 19,
+   "statement": "The ownership proof: the treasury receives the owner's 10 XNO (source block B42D35136339688A1E1AA8A5E07F5C95C15A7E806D2EE803D293B3BEE52010FB) with a single on-chain receive block whose confirmation is witnessed on two independent RPC endpoints.",
+   "test": "tests test the receive: run tools/receive_funding.py which (1) derives the treasury address == NANO_AGENT_ACCOUNT, (2) builds+signs an open/receive block (work root = account public key because frontier is all-zero), (3) broadcasts via rpc.nano.to process subtype=receive, (4) then account_info on two independent RPCs returns the new balance and the receive block appears in account_history. The receive only increases the balance (not an outgoing spend, outside the daily cap).",
+   "minted": "2026-09-14T18:20:30+00:00"
+  },
+  {
+   "id": "L28",
+   "block": 19,
+   "statement": "A real funded on-chain send from the treasury confirms and settles one paid mainnet call through nano-mcp exactly once, closing the standing L2 gap without faking.",
+   "test": "Buyer pays a nano-mcp paid tool on mainnet from the treasury; the send hash appears in account_history on two independent RPCs and the resource server settles exactly once.",
+   "minted": "2026-09-14T18:20:53+00:00"
   }
  ],
  "blocks": {
@@ -6088,6 +6102,10 @@
      "at": "2026-09-14T17:48:56+00:00"
     }
    ]
+  },
+  "19": {
+   "status": "pending",
+   "attempts": []
   }
  },
  "deltas": [

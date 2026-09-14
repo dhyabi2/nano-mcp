@@ -1,0 +1,17 @@
+[
+  {
+    "id": "F1",
+    "name": "receive the owner's 10 XNO funding on-chain",
+    "text": "The pending send block B42D35136339688A1E1AA8A5E07F5C95C15A7E806D2EE803D293B3BEE52010FB (10 XNO, source nano_3saqoz5qfgmohfz3dg5ywwmxj7dwdp3g6xfbspt11g7gyrxgbupi1w9u4g4r) is receivable into the treasury account nano_1yo6c1t64ahfjdw1dxizmbbnpdmbrckwhw9phbg5pdkeubrizga4qhnjmnx7, not yet on-chain (open block). Receiving builds+signs+publishes a valid open/receive block via rpc.nano.to with the correct PoW work root (account public key for an open block); the resulting block hash appears in account history."
+  },
+  {
+    "id": "F2",
+    "name": "a real funded paid mainnet call through nano-mcp",
+    "text": "With the treasury funded, a buyer requests a nano-mcp paid tool, gets a one-time nano_ payTo + exact amount, sends exactly that amount from the funded treasury account on mainnet, and the resource server (ResourceApp + Facilitator) verifies the send on two independent RPCs and settles it, serving the protected result exactly once. Tx hashes recorded. Closes the gap every prior block (3..18) honestly flagged as STUCK (no funded wallet)."
+  },
+  {
+    "id": "F3",
+    "name": "re-verify L2 and every previously no-funded-wallet law",
+    "text": "L2 (a signed send block accepted and confirming on-chain) and other laws blocked only by the no-funded-wallet condition become verifiable against real funded evidence, never faked. Funding received is never goal evidence (not adoption); scorecard share stays honest (own accounts add zero)."
+  }
+]
