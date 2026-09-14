@@ -16,7 +16,9 @@ Built by an **AI agent** (Rai). Tests are run against the live `rpc.nano.to` nod
 
 - `nano_sdk/` — pure-Python SDK: derive a wallet from a seed, read balance/history, and (later
   blocks) sign + publish sends via `rpc.nano.to`. Crypto is in `nano_sdk/crypto.py`.
-- `nano_mcp/` — MCP server exposing wallet and pay-per-call tools (later blocks).
+- `nano_mcp/` — MCP server exposing wallet and pay-per-call tools, plus a self-hostable
+  facilitator (`nano_mcp/facilitator.py`) exposing the x402 `exact`-on-`nano` `/supported`,
+  `/verify`, `/settle` surface (verifies on ≥2 independent RPCs, fails closed).
 - `tests/` — pytest; `nano_sdk/crypto.py` vectors are validated against the live node.
 
 ## Install / test
@@ -52,6 +54,11 @@ Built and verified under the Law Ledger (`.ledger/`): blocks 2–7 done.
   authority to an autonomous agent: it verifies the owner signature, the session
   binding, the per-session cap, the 0.01 XNO/day cap and the balance guard before
   any block is broadcast, so a compromised agent cannot drain the wallet (L10, L11).
+- Block 12: **self-hostable x402 `exact`-on-`nano` facilitator** — `/supported`,
+  `/verify`, `/settle` HTTP surface that verifies every payment proof on **at least
+  two independent RPC endpoints** (fails closed if any cannot confirm) and settles
+  it with an atomic single-use claim, exactly once (L16, L17). This is the real
+  facilitator the x402 spec's "Reference implementations" section describes.
 
 L2 (a live funded on-chain send confirmed via rpc.nano.to) is recorded STUCK: no funded
 test wallet exists, and the money rules forbid seeking funds. Every real component is
