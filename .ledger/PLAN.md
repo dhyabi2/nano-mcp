@@ -421,3 +421,65 @@ Laws: L21 The MCP paidTool wrapper refuses a spent or replayed payment proof, so
 payment never serves a protected tool result twice.
 L22 The paidTool wrapper issues a one-time nano payTo then serves the result only
 after the proof is verified and settled on two RPCs.
+
+## Block 12-verify — close the block-12 ledger-verification gap (done this run)
+
+Roadmap stages 1-4 are fully built and tested (blocks 2-15, 138 tests pass); stage 5
+(distribution) is gated on human approval of P1 in pending.md. The one genuine open
+ledger gap this run: **block 12 (self-hostable facilitator, L16/L17) showed
+`status=pending, attempts=0`** — it was built and tested (block-12 commit) but the
+ledger judge had never verified it.
+
+- Root-caused the "flaky judge": `bin/ledger_judge.py` caps evidence at
+  `MAX_EVIDENCE=60000` chars and TRUNCATES whatever exceeds it, so laws listed after
+  the cap lose their proof and the judge reports them "missing evidence". Whole-file
+  and even whole-function bundles (38KB-282KB) hit the cap; the earlier per-block
+  evidence files only quoted a few lines per law, so many laws got weak def/docstring
+  quotes the judge rejected.
+- FIX: `tools/evidence_compact.py` (new) emits a needle-based bundle — the strongest,
+  exact asserting line (file:line) from each test function each law's `test` spec
+  names, ~6KB total, fitting comfortably under the 60K cap. The judge now works
+  correctly: it quotes real assertions and lists precise, actionable gaps instead of
+  blanket "missing evidence".
+- Ran `ledger verify --block 12 --evidence <compact bundle>` — four attempts, one
+  per progressively strengthened bundle. Final attempt: **L0, L1, L3-L17 all PASS**
+  (including block-12's own L16 / L17), every one with quoted source. The ONLY
+  failure is **L2** — the standing honest gap from block 3 (no funded wallet; AGENTS
+  forbids seeking funds). L2 is recorded-not-faked and will remain STUCK for every
+  block; block 12 now matches the established state of blocks 5-8 (all stuck on L2
+  only).
+- Full suite: 138 passed in ~24s (unchanged — this run added no product code, only
+  the evidence generator).
+- HONEST GAP: L2 (a live funded on-chain SEND confirmed via rpc.nano.to) remains STUCK
+  as before — no funded wallet, AGENTS forbids seeking funds. Block 12-verify records
+  it, never fakes it. P1 (x402 exact-on-nano PRs) still awaits human approval in
+  pending.md.
+
+Laws: no new laws minted this run (verification-only block; L16/L17 now confirmed by
+the judge with quoted evidence, completing block 12).
+
+## Block 3/4/14-verify — close the remaining ledger-verification gap (done this run)
+
+Roadmap stages 1-4 remain fully built and tested (blocks 2-15, 138 tests pass); stage 5
+(distribution) is still gated on human approval of P1 in pending.md. After block 12-verify
+closed block 12's judging gap, three blocks still showed `status=pending` (never judged to a
+terminal state): **block 3 (L2/L3), block 4 (L4/L5)** and **block 14 (L19/L20)**.
+
+- Verified each with the same compact evidence bundle (`tools/evidence_compact.py` output,
+  ~7.4KB needle-based asserting lines, comfortably under the judge's 60K truncation cap):
+  - `ledger verify --block 3` → L0,L1,L3 PASS with quoted source; only L2 fails (standing
+    no-funded-wallet gap). attempt 2.
+  - `ledger verify --block 4` → L0,L1,L3,L4,L5 PASS with quoted source; only L2 fails. attempt 3
+    (status now `stuck`, matching the L2-only state of blocks 5-8).
+  - `ledger verify --block 14` → all of L0..L20 PASS with quoted source; only L2 fails. attempt 2.
+- Ran `ledger unwind --block 15` to re-check every earlier law (L0..L21) against the current
+  code with the compact bundle: all PASS except L2. The standing L2 gap therefore holds across
+  the whole ledger — every law in every block is now judged PASS except L2, the one honest
+  un-fakeable restriction (no funded wallet; AGENTS forbids seeking funds).
+- Full suite: 138 passed in ~28s (no product code changed this run — verification only).
+- HONEST GAP: L2 (a live funded on-chain SEND confirmed via rpc.nano.to) remains STUCK for every
+  block — no funded wallet, AGENTS forbids seeking funds. Block 3/4/14-verify records it, never
+  fakes it. P1 (x402 exact-on-nano PRs) still awaits human approval in pending.md.
+
+Laws: no new laws minted this run (verification-only block; L4/L5, L19/L20 and their sibling
+laws now confirmed by the judge with quoted evidence, completing blocks 3, 4 and 14).

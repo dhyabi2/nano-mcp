@@ -16,7 +16,22 @@ REPO = "/root/nano-agent/nano-mcp"
 PY = os.path.join(REPO, ".venv", "bin", "python")
 
 # law -> (test_file, list of test-function names to quote)
+# Order matters: the block-15 laws (L21/L22) and block 12-14 laws (L16-L20) are
+# quoted FIRST so they survive the ~60KB gather() truncation no matter what else
+# is on the command line. Earlier (block 2-8) laws follow and are lower priority.
 LAW_TESTS: dict[str, tuple[str, list[str]]] = {
+    "L21": ("tests/test_paidtool.py", ["test_replay_is_refused_once"]),
+    "L22": ("tests/test_paidtool.py", ["test_execute_serves_result_after_verify_and_settle",
+                                       "test_request_issues_one_time_payto",
+                                       "test_fail_closed_single_endpoint_refuses",
+                                       "test_wrong_amount_is_refused",
+                                       "test_missing_request_id_is_refused"]),
+    "L16": ("tests/test_facilitator.py", ["test_l16_facilitator_exposes_supported_verify_settle",
+                                          "test_l16_fail_closed_when_any_endpoint_errors"]),
+    "L17": ("tests/test_facilitator.py", ["test_l17_settle_re_verifies_then_claims_atomically"]),
+    "L18": ("tests/test_facilitator_live.py", ["test_live_confirms_real_send_on_two_independent_public_rpcs"]),
+    "L19": ("tests/test_httpx402.py", ["test_402_then_serves_after_settled_payment"]),
+    "L20": ("tests/test_httpx402.py", ["test_spent_proof_never_serves_twice"]),
     "L0": ("tests/test_crypto.py",
            ["test_private_key_derivation_matches_official_vector",
             "test_address_matches_docs_keyexpand"]),
@@ -39,39 +54,32 @@ LAW_TESTS: dict[str, tuple[str, list[str]]] = {
     "L14": ("tests/test_x402_draft.py", ["test_spec_file_exists_at_x402_path",
                                          "test_spec_payload_uses_nano_proof_and_network"]),
     "L15": ("tests/test_x402_draft_refimpl.py", ["test_refimpl_implements_the_three_core_interfaces"]),
-    "L16": ("tests/test_facilitator.py", ["test_l16_facilitator_exposes_supported_verify_settle",
-                                          "test_l16_fail_closed_when_any_endpoint_errors"]),
-    "L17": ("tests/test_facilitator.py", ["test_l17_settle_re_verifies_then_claims_atomically"]),
-    "L18": ("tests/test_facilitator_live.py", ["test_live_confirms_real_send_on_two_independent_public_rpcs"]),
-    "L19": ("tests/test_httpx402.py", ["test_402_then_serves_after_settled_payment"]),
-    "L20": ("tests/test_httpx402.py", ["test_spent_proof_never_serves_twice"]),
-    "L21": ("tests/test_paidtool.py", ["test_replay_is_refused_once"]),
-    "L22": ("tests/test_paidtool.py", ["test_execute_serves_result_after_verify_and_settle",
-                                       "test_request_issues_one_time_payto"]),
 }
 
 
 def quote_source(path: str, func_names: list[str]) -> str:
-    """Return the source of each named test function with file:line prefixes."""
+    """Return the full source of each named test function with file:line prefixes.
+
+    Captures the WHOLE body (up to 42 lines) INCLUDING internal blank lines, and
+    stops only at the next top-level `def` — never at a blank line inside the
+    function (a blank line between statements is not the function's end).
+    """
     full = os.path.join(REPO, path)
     if not os.path.exists(full):
         return f"## {path}: FILE NOT FOUND\n"
     src = open(full, encoding="utf-8").read().splitlines()
     pieces: list[str] = []
     for name in func_names:
-        # find 'def <name>(' (may be nested inside async)
-        pat = re.compile(rf"^(async )?def {re.escape(name)}\(")
+        top = re.compile(rf"^(async )?def {re.escape(name)}\(")
         for i, line in enumerate(src):
-            if pat.match(line.strip()):
-                depth = 0
+            if top.match(line.strip()):
                 block: list[str] = []
-                for j in range(i, len(src)):
-                    block.append(src[j])
-                    depth += src[j].count("(") - src[j].count(")")
-                    # include the def line's own decorators region by starting at i-2 if blank
-                    if j > i and depth <= 0 and src[j].strip() == "":
+                for j in range(i, min(len(src), i + 44)):
+                    # stop at the next module-level function (col-0 'def ')
+                    if j > i and re.match(r"^(async )?def ", src[j]):
                         break
-                quoted = "\n".join(f"{path}:{i+k+1}: {ln}" for k, ln in enumerate(block[:28]))
+                    block.append(src[j])
+                quoted = "\n".join(f"{path}:{i+k+1}: {ln}" for k, ln in enumerate(block))
                 pieces.append(quoted)
                 break
     return "\n".join(pieces) or f"## {path}: could not locate {func_names}\n"
