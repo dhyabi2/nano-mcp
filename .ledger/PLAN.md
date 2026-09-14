@@ -27,15 +27,30 @@ this PLAN.md; laws below minted and verified against the plan docs.
 Laws: L2.1 seed-based address derivation matches the official example.
 L2.2 live reads (balance/history) work via rpc.nano.to without a local node.
 
-## Block 3 — SDK send (sign + PoW + publish)
-- Construct/sign a state block (send + receive), sign with ed25519_blake2b over blake2b-256 block
-  hash (per block-format doc), obtain PoW via rpc.nano.to `work_generate` (frontier), publish via
-  rpc.nano.to `process`.
-- Guard: refuse amount > available balance; respect <= 0.01 XNO/day outbound cap.
-- Live test only between accounts the agent controls, smallest amounts.
+## Block 3 — SDK send (sign + PoW + publish) — done this session
+- `nano_sdk/block.py`: state-block byte construction (preamble 0x06 || account ||
+  previous || representative || balance16 || link), blake2b-256 block hash, and
+  Ed25519-Blake2b signing over that hash.
+- `nano_sdk/wallet.py`: `Wallet` derives an account, reads account_info
+  (balance/frontier/representative atomically), guards balance + daily cap
+  (0.01 XNO/day), gets PoW via rpc.nano.to `work_generate`, builds+signs the send
+  block, publishes via `process` (subtype=send, json_block=true).
+- `client.process()` / `client.work_generate()` wrappers added.
+- Tests: hash + signature verified against the docs *receive* vector
+  byte-for-byte AND against live confirmed on-chain blocks (block_info ground
+  truth); send-guard unit tests (over-balance and over-cap both raise before any
+  broadcast). 28 passed (incl. live network tests).
+- HONEST GAP: L2's full on-chain *confirmed send* (funds actually moving) is NOT
+  run this session: no funded wallet exists in ~/.hermes/.env and AGENTS rules
+  forbid seeking funds. The send *path* (sign/PoW/publish + guards) is built and
+  its hash+signature mechanics are proven against the live chain; the final
+  real-funds broadcast+confirmation is recorded as UNVERIFIED pending a funded
+  test wallet.
 
-Laws: L3.1 a signed send block is accepted and confirms on-chain via rpc.nano.to.
-L3.2 the SDK refuses to send more than the wallet holds / more than the daily 0.01 XNO cap.
+Laws: L3.1 a signed send block is accepted and confirms on-chain via rpc.nano.to
+(UNVERIFIED pending funded wallet — path built, hash/sig proven vs live chain).
+L3.2 the SDK refuses to send more than the wallet holds / more than the daily
+0.01 XNO cap (VERIFIED by unit tests).
 
 ## Block 4 — MCP server (pay-per-call tools)
 - `nano_mcp/` FastMCP stdio server. Tools: `get_address`, `get_balance`, `get_history`,

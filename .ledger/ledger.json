@@ -113,7 +113,35 @@
   },
   "3": {
    "status": "pending",
-   "attempts": []
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "pytest output: `tests/test_crypto.py::test_private_key_derivation_matches_official_vector PASSED [ 28%]`, `tests/test_crypto.py::test_public_key_derivation_matches_docs_keyexpand PASSED [ 32%]`, `tests/test_crypto.py::test_address_matches_docs_keyexpand PASSED [ 35%]`, `tests/test_crypto.py::test_address_encoding_matches_node[351B53345493B1F3D05980354C6D41ED32BEFEB2664834B95B7DA06292D9D023-nano_1faucet7b6xjyha7m13objpn5ubkquzd6ska8kwopzf1ecbfmn35d1zey3ys] PASSED [ 39%]`, and `tests/test_crypto.py::test_address_encoding_matches_node[E89208DD038FBB269987689621D52292AE9C35941A7484756ECCED92A65093BA-nano_3t6k35gi95xu6tergt6p69ck76ogmitsa8mnijtpxm9fkcm736xtoncuohr3] PASSED [ 42%]`. These tests verify seed->private key, public key, address derivation, and address encoding against official vectors and live node ground truth."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "pytest output: `tests/test_client.py::test_live_balance_read PASSED [ 17%]` and `tests/test_client.py::test_live_history_read PASSED [ 21%]`. These tests call rpc.nano.to (NANO_RPC_URL) for balance and history reads on known accounts and assert expected responses."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "No test in the evidence sends a live self-transfer and then checks account_history for the resulting block hash. The test files shown (test_block.py, test_wallet.py) contain only hash recomputation of existing blocks and stub-based wallet tests; no test exercises a real `process` RPC call and later confirms the block appears in account_history. The pytest output does not include any such test."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "pytest output: `tests/test_wallet.py::test_send_over_balance_raises_without_publishing PASSED [ 85%]` and `tests/test_wallet.py::test_send_over_daily_cap_raises_without_publishing PASSED [ 89%]`. These tests call `send` with amounts exceeding balance and daily cap and assert the corresponding exceptions are raised, proving the guards work."
+      }
+     ],
+     "at": "2026-09-14T00:19:57+00:00"
+    }
+   ]
   },
   "4": {
    "status": "pending",
@@ -129,6 +157,11 @@
    "block": 2,
    "text": "L0.test: docs publish seed->priv (the-basics) and priv->pub->address (key_expand) as SEPARATE vectors, no single seed->address example; so the law's original test wording (derive then compare to one docs seed/address) was unachievable. Corrected test wording to the piecewise chain of official vectors the tests actually assert. No change to the law statement.",
    "at": "2026-09-13T23:56:59+00:00"
+  },
+  {
+   "block": 3,
+   "text": "L2.verify_status: unverified → STUCK (no funded wallet; funds-broadcast+confirm not runnable this session; sign/PoW/publish path built and hash+signature proven vs live chain via block_info ground truth)",
+   "at": "2026-09-14T00:20:15+00:00"
   }
  ],
  "probe": null

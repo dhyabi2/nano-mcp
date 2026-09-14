@@ -10,11 +10,23 @@ from .crypto import (
     validate_address,
 )
 from .units import nano_str, nano_to_raw, raw_to_nano
+from .wallet import (
+    DailyCapExceeded,
+    InsufficientBalance,
+    RpcBalanceError,
+    Wallet,
+    DEFAULT_DAILY_CAP_RAW,
+)
 
 __all__ = [
     "Account",
+    "DailyCapExceeded",
+    "DEFAULT_DAILY_CAP_RAW",
+    "InsufficientBalance",
+    "RpcBalanceError",
     "RpcClient",
     "RpcError",
+    "Wallet",
     "address_from_public_key",
     "derive_account",
     "derive_private_key",

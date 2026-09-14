@@ -54,3 +54,20 @@ class RpcClient:
 
     def pending(self, account: str, count: int = 10) -> dict:
         return self.call(action="pending", account=account, count=count)
+
+    # ---- write / PoW actions (may require NANO_RPC_KEY) ----
+    def work_generate(self, hash: str) -> dict:
+        """Generate proof-of-work for a block. `hash` is the frontier (previous)."""
+        return self.call(action="work_generate", hash=hash)
+
+    def process(self, block: dict, subtype: str | None = None) -> dict:
+        """Broadcast a signed block. Returns {"hash": <block hash>} on success.
+
+        Submitting `subtype` (send/open/receive/change) is recommended by
+        docs.nano.org to avoid incorrect sends and will be required and, in older
+        wording, 'highly recommended'.
+        """
+        payload: dict = {"action": "process", "json_block": "true", "block": block}
+        if subtype:
+            payload["subtype"] = subtype
+        return self.call(**payload)
