@@ -33,6 +33,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from typing import Protocol
 
 # ---------------------------------------------------------------------------
 # Raw data model
@@ -83,14 +84,15 @@ def load_x402(path: Path) -> dict:
     return data
 
 
-class JournalProto:
+class JournalProto(Protocol):
     """A reader that yields nano receipts as dicts with at least a `payer`.
 
     Drives the L5 share (#instead of) a live nano-pulse DB or a scratch one.
+    Any object with a ``read(after_seq=0)`` method satisfies it structurally.
     """
 
-    def read(self, after_seq: int = 0):
-        raise NotImplementedError
+    def read(self, after_seq: int = 0) -> list[dict]:  # pragma: no cover - interface only
+        ...
 
 
 def count_external_receipts(
@@ -246,19 +248,21 @@ def main(argv: list[str] | None = None) -> int:
     pb.add_argument("--out", default="scorecard/published.json")
     pb.add_argument("--manifest", default="scorecard/manifest.json")
     pb.add_argument("--journal", default=None, help="optional .json list of receipts")
+    pb.add_argument("--journal-db", default=None,
+                    help="optional path to the real nano-pulse journal DB "
+                         "(default: ~/.hermes/nano-pulse/journal.db)")
     pb.add_argument("--own", default="", help="whitespace/comma own accounts")
 
     pv = sub.add_parser("verify", help="rerun build and compare to published figures")
     pv.add_argument("--raw", required=True)
     pv.add_argument("--published", default="scorecard/published.json")
     pv.add_argument("--journal", default=None)
+    pv.add_argument("--journal-db", default=None)
     pv.add_argument("--own", default="")
 
     args = p.parse_args(argv)
 
-    def _receipts(path: str | None) -> "JournalProto | None":
-        if not path:
-            return None
+    def _json_reader(path: str) -> "JournalProto":
         rows = _json_file(path)
 
         class _Reader(JournalProto):
@@ -271,8 +275,17 @@ def main(argv: list[str] | None = None) -> int:
         t.strip() for t in args.own.replace(",", " ").split() if t.strip()
     }
 
+    def _receipts(args) -> "JournalProto | None":
+        if args.journal_db is not None:
+            from nano_mcp.journaldb import PulseJournalReader
+
+            return PulseJournalReader(args.journal_db)
+        if args.journal is not None:
+            return _json_reader(args.journal)
+        return None
+
     if args.cmd == "build":
-        journal = _receipts(args.journal)
+        journal = _receipts(args)
         published = build(args.raw, journal, own)
         Path(args.out).write_text(_canonical(published))
         Path(args.manifest).write_text(_canonical(make_manifest(args.raw, published)))
@@ -280,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"share_of_observed = {published['nano']['share_of_observed']:.6%}")
         return 0
 
-    journal = _receipts(args.journal)
+    journal = _receipts(args)
     ok, problems = verify(args.raw, args.published, journal, own)
     for problem in problems:
         print(f"MISMATCH {problem}")

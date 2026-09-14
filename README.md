@@ -71,6 +71,15 @@ Built and verified under the Law Ledger (`.ledger/`): blocks 2–15 done.
   proof on two independent RPCs, settles it exactly once, and returns the protected
   tool result — the same handshake the HTTP server runs, exposed to MCP agents (L21,
   L22). Closes the last roadmap-stage-1 deliverable.
+- Block 16: the scorecard reads **real evidence**. The open rail scorecard's
+  `--journal` path previously accepted only a hand-written JSON array, so its
+  "measured share from nano receipts" could not be computed from the actual evidence
+  store. `nano_mcp/journaldb.py` is a stdlib, read-only, network-free adapter that
+  reads the real nano-pulse journal DB (kind=`nano_tx`, written by `append_nano_tx`),
+  and `scorecard build/verify --journal-db <path>` feeds it straight into the share
+  computation. `scorecard/published.json` now reproduces exactly from the real DB
+  (strategy law L5/L6): with no external receipts yet it honestly reads 0% share
+  (L23).
 
 L2 (a live funded on-chain send confirmed via rpc.nano.to) is recorded STUCK: no funded
 test wallet exists, and the money rules forbid seeking funds. Every real component is

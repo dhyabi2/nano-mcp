@@ -483,3 +483,38 @@ terminal state): **block 3 (L2/L3), block 4 (L4/L5)** and **block 14 (L19/L20)**
 
 Laws: no new laws minted this run (verification-only block; L4/L5, L19/L20 and their sibling
 laws now confirmed by the judge with quoted evidence, completing blocks 3, 4 and 14).
+
+## Block 16 — scorecard reads REAL nano-pulse evidence (L23) — done this run
+
+Roadmap stages 1-4 remain fully built and tested; stage 5 (distribution) is still gated on
+human approval of P1 in pending.md. After block 15 the ONE remaining evidence gap was
+conceptual: the open rail scorecard's `--journal` path only accepted a HAND-WRITTEN JSON
+array (`scorecard/receipts_sample.json`), so strategy law L5's "measured share from nano
+receipts" could not actually be computed from the real evidence store that
+`append_nano_tx` journals into (`nano_tx` events in /root/.hermes/nano-pulse/journal.db).
+
+- `nano_mcp/journaldb.py` (new): {read_nano_tx, PulseJournalReader, default_journal_db} —
+  a stdlib-only (sqlite3 + json), read-only (`mode=ro`), network-free adapter that reads
+  the REAL nano-pulse DB (SELECT kind='nano_tx'), parsing each event's data JSON into the
+  receipt dicts the scorecard already sums ({payer, hash, amount_xno, direction, external}).
+  `JournalProto` in scorecard.py is now a `typing.Protocol` so the reader satisfies it
+  structurally (no cross-import; scorecard stays pure/deterministic).
+- `scorecard build/verify --journal-db <path>`: CLI flag wired to the new reader; the
+  committed `scorecard/published.json` was REGENERATED from the real DB. It previously
+  claimed `external_receipts:1` / `share:6.1e-09` from the hand-written sample — a figure
+  that was NOT real evidence. It now reads `external_receipts:0` / `share:0.0`, the honest
+  truth (the real DB holds zero `nano_tx` rows today). `verify` PASSES against the real DB.
+- `tests/test_journaldb.py` (new, 5 tests): real evidence writer (journal.append) →
+  reader round-trip surfaces exactly the logged external payer; own-account payments are
+  never written and drop to zero in the share; `count_external_receipts` returns only EXT;
+  CLI `--journal-db` build+verify reproduces exactly; reader is read-only + network-free.
+  143 tests pass (138 prior + 5 new). mypy: only pre-existing untyped `ed25519_blake2b`
+  import warnings on the checked files — block code is clean.
+- Ledger verify block 16 (compact evidence bundle): L0..L23 all PASS with quoted
+  file:line assertions; only L2 fails (the standing no-funded-wallet STUCK, recorded not
+  faked). This re-evaluates every earlier law against current code, serving as the unwind:
+  nothing regressed. Block 16's own law L23 PASS.
+
+Laws: L23 — The scorecard's nano share is computed from the real nano-pulse journal DB,
+reproduces exactly on rerun, and Rai's own accounts add zero (VERIFIED: 5 new tests +
+judge-quoted assertions; published.json now honestly 0 share from zero real receipts).

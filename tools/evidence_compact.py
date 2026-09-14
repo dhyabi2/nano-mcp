@@ -1,4 +1,4 @@
-"""Compact L0..L22 evidence bundle for the ledger judge (fits under 60KB).
+"""Compact L0..L23 evidence bundle for the ledger judge (fits under 60KB).
 
 The judge truncates evidence at MAX_EVIDENCE=60000 chars. Whole-file or
 whole-function bundles exceed that, so later laws (incl. L16/L17) get
@@ -41,10 +41,10 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_payments.py::test_l4_same_request_id_reproduces_same_address::assert a1 == a2",
     ],
     "L5": [
-        "tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen::res[\"status\"] == \"approved\"",
-        "tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen::== \"spent\"",
+        'tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen::res["status"] == "approved"',
+        'tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen::== "spent"',
         "tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen::store.is_approved(rid)",
-        "tests/test_payments.py::test_l5_not_approved_for_underpayment_or_other_address::== \"pending\"",
+        'tests/test_payments.py::test_l5_not_approved_for_underpayment_or_other_address::== "pending"',
         "tests/test_payments.py::test_l5_concurrent_claims_approve_exactly_once::approved",
     ],
     "L6": [
@@ -65,7 +65,7 @@ NEEDLES: dict[str, list[str]] = {
     ],
     "L9": [
         "tests/test_pricing.py::test_quote_expires_in_30_seconds_or_less::expires_at - 5000.0 <= 30.0",
-        "tests/test_pricing.py::test_verify_refuses_expired_quote__does_not_approve::== \"expired\"",
+        'tests/test_pricing.py::test_verify_refuses_expired_quote__does_not_approve::== "expired"',
         "tests/test_pricing.py::test_verify_refuses_expired_quote__does_not_approve::not store.is_approved",
     ],
     "L10": [
@@ -105,17 +105,17 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkClient",
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkServer",
         "tests/test_x402_draft_refimpl.py::test_refimpl_implements_the_three_core_interfaces::implements SchemeNetworkFacilitator",
-        'tests/test_x402_draft_refimpl.py::test_refimpl_fail_closed_two_independent_rpcs::fails closed',
+        "tests/test_x402_draft_refimpl.py::test_refimpl_fail_closed_two_independent_rpcs::fails closed",
         "tests/test_x402_draft_refimpl.py::test_refimpl_atomic_single_use_claim::claimStore.claim",
         "tests/test_x402_draft_refimpl.py::test_refimpl_typechecks_against_published_x402_core::error TS",
         "tests/test_x402_draft_refimpl.py::test_pending_frames_refimpl_and_opens_no_pr::PR opened",
     ],
     "L16": [
-        "tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle::fac.supported()[\"scheme\"] == \"exact\"",
-        "tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle::fac.supported()[\"network\"] == \"nano:live\"",
+        'tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle::fac.supported()["scheme"] == "exact"',
+        'tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle::fac.supported()["network"] == "nano:live"',
         "tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle::callable(fac.verify) and callable(fac.settle)",
         "tests/test_facilitator.py::test_l16_http_get_supported::r.status_code == 200",
-        "tests/test_facilitator.py::test_l16_http_get_supported::body[\"network\"] == \"nano:live\"",
+        'tests/test_facilitator.py::test_l16_http_get_supported::body["network"] == "nano:live"',
         'tests/test_facilitator.py::test_l16_verify_confirms_on_two_independent_endpoints::["confirmedOn"] == 2',
         "tests/test_facilitator.py::test_l16_fail_closed_when_any_endpoint_errors::fail-closed",
         "tests/test_facilitator.py::test_l16_refuses_less_than_two_endpoints::fail-closed",
@@ -129,36 +129,44 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_facilitator.py::test_l17_http_post_settle_exactly_once::duplicate",
     ],
     "L18": [
-            "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.confirmed_on == 2",
-            "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.ok is True",
-            "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.consulted == 2",
-            "tests/test_facilitator_live.py::test_wrong_destination_refused_from_real_shape::res.ok is False",
-        ],
-        "L19": [
-            "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::first.status_code == 402",
-            "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::PAYMENT_REQUIRED_HEADER in first.headers",
-            "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::second.status_code == 200",
-            'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::the protected result',
-            "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::settle[\"success\"] is True",
-        ],
-        "L20": [
-            "tests/test_httpx402.py::test_spent_proof_never_serves_twice::status_code == 402",
-            "tests/test_httpx402.py::test_spent_proof_never_serves_twice::the protected result",
-        ],
-        "L21": [
-            "tests/test_paidtool.py::test_replay_is_refused_once::second[\"success\"] is False",
-            'tests/test_paidtool.py::test_replay_is_refused_once::"result" not in second',
-            "tests/test_paidtool.py::test_replay_is_refused_once::first[\"success\"] is True",
-        ],
-        "L22": [
-            'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["result"]["data"] == "the protected tool result"',
-            'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["settlement"]["success"] is True',
-            'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"] != r2["pay_to"]',
-            'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"].startswith("nano_")',
-            "tests/test_paidtool.py::test_fail_closed_single_endpoint_refuses::out[\"success\"] is False",
-            'tests/test_paidtool.py::test_wrong_amount_is_refused::out["success"] is False',
-            'tests/test_paidtool.py::test_missing_request_id_is_refused::out["success"] is False',
-        ],
+        "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.confirmed_on == 2",
+        "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.ok is True",
+        "tests/test_facilitator_live.py::test_live_confirms_real_send_on_two_independent_public_rpcs::res.consulted == 2",
+        "tests/test_facilitator_live.py::test_wrong_destination_refused_from_real_shape::res.ok is False",
+    ],
+    "L19": [
+        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::first.status_code == 402",
+        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::PAYMENT_REQUIRED_HEADER in first.headers",
+        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::second.status_code == 200",
+        "tests/test_httpx402.py::test_402_then_serves_after_settled_payment::the protected result",
+        'tests/test_httpx402.py::test_402_then_serves_after_settled_payment::settle["success"] is True',
+    ],
+    "L20": [
+        "tests/test_httpx402.py::test_spent_proof_never_serves_twice::status_code == 402",
+        "tests/test_httpx402.py::test_spent_proof_never_serves_twice::the protected result",
+    ],
+    "L21": [
+        'tests/test_paidtool.py::test_replay_is_refused_once::second["success"] is False',
+        'tests/test_paidtool.py::test_replay_is_refused_once::"result" not in second',
+        'tests/test_paidtool.py::test_replay_is_refused_once::first["success"] is True',
+    ],
+    "L22": [
+        'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["result"]["data"] == "the protected tool result"',
+        'tests/test_paidtool.py::test_execute_serves_result_after_verify_and_settle::out["settlement"]["success"] is True',
+        'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"] != r2["pay_to"]',
+        'tests/test_paidtool.py::test_request_issues_one_time_payto::assert r1["pay_to"].startswith("nano_")',
+        'tests/test_paidtool.py::test_fail_closed_single_endpoint_refuses::out["success"] is False',
+        'tests/test_paidtool.py::test_wrong_amount_is_refused::out["success"] is False',
+        'tests/test_paidtool.py::test_missing_request_id_is_refused::out["success"] is False',
+    ],
+    "L23": [
+        'tests/test_journaldb.py::test_read_nano_tx_roundtrips_evidence_rows::rows[0]["payer"] == EXT',
+        "tests/test_journaldb.py::test_read_nano_tx_roundtrips_evidence_rows::ok_ext is True and ok_own is False",
+        'tests/test_journaldb.py::test_journal_reader_counts_only_external_for_scorecard::[r["payer"] for r in receipts] == [EXT]',
+        'tests/test_journaldb.py::test_scorecard_build_uses_real_journal_db::["nano"]["external_receipts"] == 1',
+        "tests/test_journaldb.py::test_cli_journal_db_build_and_verify_is_reproducible::verify PASS",
+        "tests/test_journaldb.py::test_journal_db_is_readonly_and_network_free::pytest.raises(sqlite3.OperationalError)",
+    ],
 }
 
 
@@ -186,8 +194,8 @@ def quote(path: str, func: str, needle: str) -> str:
 
 
 def main() -> str:
-    lines = ["=== COMPACT EVIDENCE L0..L22 (asserting lines) ==="]
-    for law_id in [f"L{i}" for i in range(23)]:
+    lines = ["=== COMPACT EVIDENCE L0..L23 (asserting lines) ==="]
+    for law_id in [f"L{i}" for i in range(24)]:
         if law_id == "L2":
             lines.append(f"## {law_id} — STUCK (no funded wallet; AGENTS forbids seeking funds; recorded not faked)")
             continue
