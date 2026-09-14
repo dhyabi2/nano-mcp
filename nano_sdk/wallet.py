@@ -11,6 +11,7 @@ used so a send never overdraws.
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -27,6 +28,7 @@ class ClientLike(Protocol):
     """Minimal RPC surface the wallet needs (enables stub clients in tests)."""
 
     def account_info(self, account: str) -> dict: ...
+    def block_info(self, block_hash: str) -> dict: ...
     def call(self, **payload) -> dict: ...
 
 # Representatives: use a long-running, well-known rep (NanoFusion) for test sends.
@@ -131,7 +133,7 @@ class Wallet:
         raw_balance = int(info.get("balance", "0"))
         frontier_hex = info.get("frontier") or "0" * 64
         frontier = bytes.fromhex(frontier_hex)  # 32 raw bytes
-        rep = info.get("representative", self.representative)
+        rep = info.get("representative") or self.representative
         frontier_ascii = frontier_hex.encode()  # hex string for work_generate
 
         self.check_send(amount_raw, raw_balance)
@@ -142,6 +144,7 @@ class Wallet:
             gen = self.client.call(action="work_generate", hash=frontier_ascii.decode())
             assert isinstance(gen.get("work"), str), f"work_generate returned: {gen}"
             work = gen["work"]
+        assert isinstance(work, str), "work must be a str after generation"
 
         blk = blockmod.build_send_block(
             private_key=acct.private_key,
@@ -163,6 +166,71 @@ class Wallet:
         # Only record the spend once the block is accepted by the node.
         self._record_send(amount_raw)
         return block_hash, blk
+
+    def receive(
+        self,
+        source_block_hash: str,
+        index: int = 0,
+        work: str | None = None,
+    ) -> tuple[str, dict]:
+        """Receive a pending send `source_block_hash` into account `index`.
+
+        Reads account_info (balance + frontier + representative atomically),
+        determines the proof-of-work root, builds+signs a receive block (link =
+        the source send hash), and publishes via process (subtype=receive).
+        Receiving is not an outgoing spend, so it is not subject to the daily
+        cap; it only ever increases the account's balance.
+
+        The PoW root depends on whether the account is being opened:
+          - open/first block (frontier is all-zero): work root = account public key
+            (docs.nano.org protocol-design/blocks); NO previous exists.
+          - existing account: work root = the previous frontier hash.
+        rpc.nano.to work_generate accepts the root hex and returns the nonce.
+
+        Returns (block_hash, block_dict).
+        """
+        if not re.fullmatch(r"[0-9A-Fa-f]{64}", source_block_hash):
+            raise ValueError("source_block_hash must be a 64-hex block hash")
+
+        acct = self.account(index)
+        info = self.client.account_info(acct.address)
+        raw_balance = int(info.get("balance", "0"))
+        frontier_hex = info.get("frontier") or "0" * 64
+        frontier = bytes.fromhex(frontier_hex)
+        rep = info.get("representative") or self.representative
+
+        # The amount received is the amount of the source send block.
+        src = self.client.block_info(source_block_hash)
+        amount_raw = int(src.get("amount", "0"))
+        new_balance = raw_balance + amount_raw
+
+        # The work root is the account public key for an open (first) block,
+        # otherwise the previous frontier hash.
+        is_open = frontier_hex == "0" * 64
+        work_root = acct.public_key.hex() if is_open else frontier_hex
+        if work is None:
+            gen = self.client.call(action="work_generate", hash=work_root)
+            assert isinstance(gen.get("work"), str), f"work_generate returned: {gen}"
+            work = gen["work"]
+        assert isinstance(work, str), "work must be a str after generation"
+
+        blk = blockmod.build_receive_block(
+            private_key=acct.private_key,
+            account_pub=acct.public_key,
+            account_address=acct.address,
+            previous=frontier,
+            representative_address=rep,
+            new_balance_raw=new_balance,
+            source_block_hash=source_block_hash,
+            work=work,
+        )
+        result = self.client.call(
+            action="process",
+            json_block="true",
+            subtype="receive",
+            block=blk,
+        )
+        return result["hash"], blk
 
 
 class RpcBalanceError(RuntimeError):

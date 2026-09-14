@@ -19,6 +19,7 @@ are encoded as unit-test vectors.
 from __future__ import annotations
 
 import hashlib
+import re
 
 import ed25519_blake2b
 
@@ -26,6 +27,7 @@ from .crypto import public_key_from_address
 
 STATE_PREAMBLE = 0x06  # 32-byte field, value 6
 _HASH_LENGTH = 32
+_HEX64 = re.compile(r"^[0-9A-Fa-f]{64}$")
 
 
 def _block_bytes(
@@ -105,6 +107,47 @@ def build_send_block(
         "balance": str(new_balance_raw),
         "link": dest_pub.hex().upper(),
         "link_as_account": destination_address,
+        "signature": signature.hex().upper(),
+        "work": work,
+    }
+
+
+def build_receive_block(
+    private_key: bytes,
+    account_pub: bytes,
+    account_address: str,
+    previous: bytes,
+    representative_address: str,
+    new_balance_raw: int,
+    source_block_hash: str,
+    work: str,
+) -> dict:
+    """Return a signed Nano `state` receive block dict ready for `process`.
+
+    A receive claims a pending send: the `link` field is the 64-hex hash of the
+    send block being received (not a destination address). `previous` is the
+    account's current frontier (all-zeros for the first/open block). `work` is
+    the proof-of-work hex for the block (generated over `previous`).
+    """
+    if len(previous) != 32:
+        raise ValueError("previous must be 32 bytes")
+    if len(private_key) != 32:
+        raise ValueError("private_key must be 32 bytes")
+    if not _HEX64.match(source_block_hash):
+        raise ValueError("source_block_hash must be a 64-hex block hash")
+
+    rep_pub = public_key_from_address(representative_address)
+    link = bytes.fromhex(source_block_hash)
+    digest = block_hash(account_pub, previous, rep_pub, new_balance_raw, link)
+    signature = sign(private_key, digest)
+
+    return {
+        "type": "state",
+        "account": account_address,
+        "previous": previous.hex().upper(),
+        "representative": representative_address,
+        "balance": str(new_balance_raw),
+        "link": source_block_hash.upper(),
         "signature": signature.hex().upper(),
         "work": work,
     }

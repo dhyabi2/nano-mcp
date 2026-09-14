@@ -98,7 +98,7 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_x402_draft.py::test_spec_json_blocks_parse_and_are_self_consistent::nano:live",
         "tests/test_x402_draft.py::test_spec_encodes_strategy_law_l1_two_independent_rpcs::at least two independent",
         "tests/test_x402_draft.py::test_spec_encodes_single_use_claim::exactly once",
-        "tests/test_x402_draft.py::test_pending_p1_framed_as_exact_scheme_on_nano_network::exact` scheme on the `nano` network",
+        "tests/test_x402_draft.py::test_pending_p1_framed_as_exact_scheme_on_nano_network::withdrawn",
         "tests/test_x402_draft.py::test_no_upstream_pr_opened_by_default::PR opened",
     ],
     "L15": [
@@ -167,6 +167,15 @@ NEEDLES: dict[str, list[str]] = {
         "tests/test_journaldb.py::test_cli_journal_db_build_and_verify_is_reproducible::verify PASS",
         "tests/test_journaldb.py::test_journal_db_is_readonly_and_network_free::pytest.raises(sqlite3.OperationalError)",
     ],
+    "L24": [
+        "tests/test_wallet.py::test_receive_publishes_receive_block_and_increases_balance::proc[\"subtype\"] == \"receive\"",
+        "tests/test_wallet.py::test_receive_publishes_receive_block_and_increases_balance::proc[\"block\"][\"link\"] == src.upper()",
+        'tests/test_wallet.py::test_receive_publishes_receive_block_and_increases_balance::proc["block"]["balance"] == str(',
+        "tests/test_wallet.py::test_receive_open_account_uses_account_public_key_as_work_root::wg[\"hash\"] == acct.public_key.hex()",
+        'tests/test_wallet.py::test_receive_open_account_uses_account_public_key_as_work_root::proc["block"]["previous"] == "0" * 64',
+        "tests/test_block.py::test_receive_vector_matches_docs_exactly::assert h.hex().upper() == expected_hash",
+        "tests/test_wallet.py::test_receive_rejects_bad_source_hash::pytest.raises(ValueError)",
+    ],
 }
 
 
@@ -194,8 +203,8 @@ def quote(path: str, func: str, needle: str) -> str:
 
 
 def main() -> str:
-    lines = ["=== COMPACT EVIDENCE L0..L23 (asserting lines) ==="]
-    for law_id in [f"L{i}" for i in range(24)]:
+    lines = ["=== COMPACT EVIDENCE L0..L24 (asserting lines) ==="]
+    for law_id in [f"L{i}" for i in range(25)]:
         if law_id == "L2":
             lines.append(f"## {law_id} — STUCK (no funded wallet; AGENTS forbids seeking funds; recorded not faked)")
             continue

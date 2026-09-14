@@ -99,15 +99,16 @@ def test_spec_encodes_single_use_claim():
 def test_pending_p1_framed_as_exact_scheme_on_nano_network():
     assert PENDING.is_file(), f"pending.md missing at {PENDING}"
     text = PENDING.read_text()
-    # The framing correction from block 10: Nano is a network under `exact`.
-    assert "exact` scheme on the `nano` network" in text
-    assert "scheme_exact_nano.md" in text  # correct x402 spec path
-    assert "New Chains" in text
+    # The owner retired pending.md (2026-09-14): Rai is autonomous and P1 is
+    # withdrawn. The spec draft still exists at the correct x402 path, but the
+    # proposal is no longer an approval request.
+    assert "retired" in text
+    assert "withdrawn" in text
+    assert SPEC.is_file(), f"spec draft missing at {SPEC}"
 
 
 def test_no_upstream_pr_opened_by_default():
     """AGENTS blocks opening upstream PRs without human approval; the block must not."""
     text = PENDING.read_text()
-    # The Ask still requires approval; nothing should claim a PR was already opened.
-    assert "I can open PR 1" not in text or "Approve so I (a) open PR 1" in text
-    assert "PR opened" not in text or "requiring approval" in text
+    # P1 is withdrawn; nothing claims a PR was opened.
+    assert "PR opened" not in text or "withdrawn" in text

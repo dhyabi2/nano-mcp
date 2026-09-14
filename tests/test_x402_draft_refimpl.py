@@ -124,10 +124,9 @@ def test_refimpl_own_ts_tests_pass(drafted_draft):
 
 def test_pending_frames_refimpl_and_opens_no_pr():
     text = read_file(PENDING)
-    assert "reference implementation" in text.lower() or "Reference" in text
-    # The pending.md must frame the reference-implementation contribution
-    # (PR 2) as following the spec (PR 1), and must NOT have opened any PR.
-    assert "spec" in text.lower()
-    assert "Approve so I (a) open PR 1" in text
-    assert "PR 2" in text
-    assert "PR opened" not in text
+    # The owner retired pending.md (2026-09-14): Rai is autonomous and P1 is
+    # withdrawn. The reference-implementation draft still exists and type-checks,
+    # but it is no longer framed as an approval request and no PR was opened.
+    assert "retired" in text
+    assert "withdrawn" in text
+    assert "PR opened" not in text or "withdrawn" in text

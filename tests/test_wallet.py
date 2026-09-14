@@ -19,6 +19,7 @@ class StubClient:
     def __init__(self, balance_raw: int, frontier: str = "AB" * 32):
         self.balance_raw = balance_raw
         self.frontier = frontier
+        self.pending_amount = 0
         self.calls: list[dict] = []
         self.process_result = {"hash": "CD" * 32}
 
@@ -28,6 +29,9 @@ class StubClient:
             "frontier": self.frontier,
             "representative": REP,
         }
+
+    def block_info(self, block_hash: str) -> dict:
+        return {"amount": str(self.pending_amount)}
 
     def call(self, **payload) -> dict:
         self.calls.append(payload)
@@ -104,3 +108,56 @@ def test_invalid_destination_raises():
     w = Wallet(seed=SEED, client=client)
     with pytest.raises(ValueError):
         w.send("not_a_nano_address", int(nano_to_raw("0.001")))
+
+
+# -- receive ---------------------------------------------------------------
+
+def test_receive_publishes_receive_block_and_increases_balance():
+    """Receiving a pending send builds a receive block (link = source hash),
+    publishes with subtype=receive, and is not counted against the daily cap."""
+    client = StubClient(balance_raw=int(nano_to_raw("0.001")))
+    client.pending_amount = int(nano_to_raw("0.5"))
+    w = Wallet(seed=SEED, client=client)
+    src = "AB" * 32
+    h, blk = w.receive(src)
+    assert h == client.process_result["hash"]
+    # process payload carried subtype=receive and the source hash as link
+    proc = [c for c in client.calls if c["action"] == "process"][0]
+    assert proc["subtype"] == "receive"
+    assert proc["block"]["link"] == src.upper()
+    # new balance = old + received amount
+    assert proc["block"]["balance"] == str(
+        int(nano_to_raw("0.001")) + int(nano_to_raw("0.5"))
+    )
+    # receiving is not an outgoing spend -> daily cap untouched
+    assert w._sent_today() == 0
+
+
+def test_receive_rejects_bad_source_hash():
+    client = StubClient(balance_raw=int(nano_to_raw("0.001")))
+    w = Wallet(seed=SEED, client=client)
+    with pytest.raises(ValueError):
+        w.receive("not-a-64-hex-hash")
+    assert not [c for c in client.calls if c["action"] == "process"]
+
+
+def test_receive_open_account_uses_account_public_key_as_work_root():
+    """For an open (first) block, the PoW work root must be the account public
+    key, not the (all-zero) previous frontier and not a block hash."""
+    from nano_sdk import derive_account
+
+    acct = derive_account(SEED, 0)
+    client = StubClient(balance_raw=0, frontier="0" * 64)  # open account
+    client.pending_amount = int(nano_to_raw("0.5"))
+    w = Wallet(seed=SEED, client=client)
+    src = "AB" * 32
+    h, blk = w.receive(src)
+    assert h == client.process_result["hash"]
+    # work was generated over the account public key for the open block
+    wg = [c for c in client.calls if c["action"] == "work_generate"][0]
+    assert wg["hash"] == acct.public_key.hex()
+    proc = [c for c in client.calls if c["action"] == "process"][0]
+    assert proc["subtype"] == "receive"
+    assert proc["block"]["previous"] == "0" * 64
+    # open-block receive is still not an outgoing spend
+    assert w._sent_today() == 0
