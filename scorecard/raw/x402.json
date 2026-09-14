@@ -1,0 +1,7 @@
+{
+  "count": 165000000,
+  "volume_usd": 100000000,
+  "source": "Public x402 agent-payment counts: 165M+ payments, $100M+ volume (Coinbase x402 / X Pay press, Sept 2026); more than 99% USDC, >90% on Base.",
+  "as_of": "2026-09-13",
+  "note": "Denominator of Nano's share of observed agent payments. This is a public x402 count, NOT Rai's own traffic."
+}

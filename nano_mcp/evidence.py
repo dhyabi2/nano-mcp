@@ -52,6 +52,7 @@ def append_nano_tx(
                     "hash": block_hash,
                     "direction": "receive",
                     "external": True,
+                    "payer": payer,
                     "amount_xno": amount_xno,
                     "url": f"https://nanexplorer.com/nano/block/{block_hash}",
                 },

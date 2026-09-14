@@ -13,23 +13,35 @@ from .pricing import (
     median,
     usd_to_xno_raw,
 )
+from .scorecard import (
+    JournalProto,
+    build as scorecard_build,
+    count_external_receipts,
+    make_manifest,
+    verify as scorecard_verify,
+)
 from .service import PaymentService, Quote
 from .store import ApprovalStore
 
 __all__ = [
     "ApprovalStore",
     "DEFAULT_SOURCES",
+    "JournalProto",
     "PaymentService",
     "QUOTE_TTL_SECONDS",
     "Quote",
     "append_nano_tx",
+    "count_external_receipts",
     "derive_one_time_account",
     "exact_xno_amount",
     "fetch_median_xno_usd",
     "hkdf_sha256",
+    "make_manifest",
     "median",
     "new_request_id",
     "own_accounts_from_env",
+    "scorecard_build",
+    "scorecard_verify",
     "should_log",
     "usd_to_xno_raw",
 ]

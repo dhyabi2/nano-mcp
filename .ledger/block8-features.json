@@ -1,0 +1,12 @@
+[
+ {"id": "F1", "name": "on-chain measurement",
+  "text": "x402intel.uk measures x402/USDC buyer structure on-chain (8000+ distinct buyers/30d, 65.4% recurring) rather than trusting self-reported call-count headlines, and publishes method + window with each figure."},
+ {"id": "F2", "name": "self-hosted real settling index",
+  "text": "agent402.tools runs a paid canary that buys tools daily over the Base rail and reports settlement-verified figures (1574 settlements/30d, price floor $0.001), excluding its own host and canary volume from the ranked rows."},
+ {"id": "F3", "name": "reproducible published figures",
+  "text": "x402intel.uk states figures as fact with their method and sample and publishes raw measurement data; an honest rail scorecard must let anyone rerun the script on the raw data and reproduce every published figure exactly."},
+ {"id": "F4", "name": "per-rail fee/finality/freeze comparison",
+  "text": "The goal's metric compares rails on measured fee, time to finality and freeze/clawback capability; card networks cost $0.20-0.30 fixed per transaction while USDC-on-Base settles sub-second under $0.001 with sponsored gas, and Nano is feeless/final in ~1s with no issuer to freeze."},
+ {"id": "F5", "name": "share of observed payments counts own traffic zero",
+  "text": "Strategy law L5: goal progress is Nano's measured share of observed agent payments, computed from public x402 counts plus nano receipts whose payer is outside NANO_AGENT_OWN_ACCOUNTS; Rai's own test payments add zero."}
+]

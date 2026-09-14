@@ -157,6 +157,37 @@ mandate bound to its own sub-account (VERIFIED).
 L11 the SDK enforces a per-session cap, the daily cap, and the balance guard
 before broadcast (VERIFIED).
 
+## Block 8 — open rail scorecard (roadmap stage 4) — done this session
+- `nano_mcp/scorecard.py` — deterministic, network-free pipeline. `build` reads
+  ONLY committed raw files (`scorecard/raw/rails.json` per-rail fee/finality/freeze
+  records with source+method+as_of, `scorecard/raw/x402.json` the public x402
+  count) plus an injected journal reader, and computes every published figure
+  plus `share_of_observed = external_receipts / (x402_count + external_receipts)`
+  where external receipts are journal rows whose payer is NOT in
+  NANO_AGENT_OWN_ACCOUNTS (the same evidence gate as `nano_mcp/evidence.py`
+  `should_log`). No network, no chain contact, byte-identical on re-run.
+- `scorecard build --raw ... --out published.json --manifest manifest.json` writes
+  a manifest mapping every published figure to the SHA-256 of the raw record(s)
+  that produced it; `scorecard verify` reruns the build and FAILS if any figure
+  differs (strategy law L6). CLI covered by `tests/test_scorecard.py`
+  (L12 share-only-external / L13 reproducibility), 10 new tests.
+- ledger verify block 8 (full evidence bundle `tools/evidence_block8.py` ->
+  per-law quoted test source + fresh `pytest -v`): L0,L1,L3,L4,L5,L6,L7,L8,L9,
+  L10,L11,L12,L13 PASS; L2 STUCK (no funded wallet — the standing honest gap from
+  block 3, not a regression). Block 8's own laws L12/L13 PASS.
+- 78 tests pass in total (68 from block 7 + 10 new scorecard).
+- HONEST GAP: L2 (a live funded on-chain send confirmed via rpc.nano.to) remains
+  STUCK — no funded wallet, AGENTS forbids seeking funds. The scorecard's share
+  therefore reads 0 today (no external receipts), which is the truth: Rai's own
+  traffic adds zero (L12).
+
+Laws: L12 Nano's scorecard share comes only from public x402 counts plus nano
+receipts whose payer is outside NANO_AGENT_OWN_ACCOUNTS; Rai's own test payments
+add exactly zero to the share (VERIFIED).
+L13 Every published scorecard figure is reproduced exactly by rerunning the
+scorecard build on the published raw data (VERIFIED: build==verify passes on
+committed raw; tampering a raw figure makes verify fail).
+
 ## Verification cadence
 After each block: `ledger verify --block N` (second model, quoted evidence), then `ledger unwind`
 for earlier laws, follow STUCK/Δ rules. Probe (block 5): one scenario, distinct evidence per law.

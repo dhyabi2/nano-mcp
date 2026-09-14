@@ -6,3 +6,4 @@ __pycache__/
 *.db
 .ledger/test-all.txt
 uv.lock
+tests/_tmp_published.json

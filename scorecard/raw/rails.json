@@ -1,0 +1,83 @@
+[
+  {
+    "rail": "nano",
+    "metric": "fee",
+    "value": 0,
+    "unit": "xno per tx",
+    "source": "Nano protocol: no transaction fee; network cost is zero (no mining, no per-tx charge).",
+    "method": "protocol",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "nano",
+    "metric": "finality_ms",
+    "value": 1000,
+    "unit": "ms (typical)",
+    "source": "Nano L1: sub-second finality; >99.9% of transactions settle in under a second (docs.nano.org / network observation).",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "nano",
+    "metric": "freeze_capable",
+    "value": false,
+    "unit": "bool",
+    "source": "No issuer or custodian: self-custody Nano cannot be frozen or clawed back by a third party.",
+    "method": "protocol",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "x402_usdc_base",
+    "metric": "fee",
+    "value": 0.001,
+    "unit": "usd per tx (approx)",
+    "source": "PayAPI Market / agent402.tools: USDC-on-Base sub-second settlement, less than $0.001 transaction fee with sponsored gas.",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "x402_usdc_base",
+    "metric": "finality_ms",
+    "value": 2000,
+    "unit": "ms (typical)",
+    "source": "agent402.tools rail manifest: 'settle latency ~2 seconds' on Base USDC.",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "x402_usdc_base",
+    "metric": "freeze_capable",
+    "value": true,
+    "unit": "bool",
+    "source": "USDC is issued by Circle (a regulated issuer) on an Ethereum L2 with a sequencer; the issuer/network can freeze or claw back USDC.",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "card_networks",
+    "metric": "fee",
+    "value": 0.25,
+    "unit": "usd per tx (fixed, approx)",
+    "source": "Benchmark: 'the fixed cost of a card transaction is twenty to thirty cents' (x402intel / X Pay). A $0.002 API call loses money on card rails by two orders of magnitude.",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "card_networks",
+    "metric": "finality_ms",
+    "value": 5000,
+    "unit": "ms (typical, estimate)",
+    "source": "Card network authorisation is typically seconds; settlement (clearing) is days. This is the authorisation-time estimate for agent payments.",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  },
+  {
+    "rail": "card_networks",
+    "metric": "freeze_capable",
+    "value": true,
+    "unit": "bool",
+    "source": "Card networks and issuers can reverse/chargeback/freeze a card payment (disputes, chargebacks).",
+    "method": "reported",
+    "as_of": "2026-09-13"
+  }
+]

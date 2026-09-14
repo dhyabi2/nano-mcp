@@ -1,0 +1,227 @@
+[
+ {
+  "feature": "F1",
+  "angle": 0,
+  "answer": "RailTrace: a deterministic PaymentID = H(buyer, agent, nonce) embedded in each rail's memo (or via Nano sidechain notarization for card rails). The scorecard script aggregates all on-chain transactions by PaymentID to compute fee, finality, and clawback events per rail, and counts Nano's share from unique IDs with external payers. Beats F1 by cross-rail unification, deterministic reproducibility, and elimination of self-reported figures.",
+  "methodology": "Most people would update the existing x402 intel service with additional per-rail metrics; instead we create a cross-rail payment trace protocol that uses a deterministic payment identifier (hash of buyer/agent/nonce) placed in each rail's memo field (or for memo-less rails, a Nano notarization sidechain), because it turns fragmented measurements into one unified, reproducible dataset while avoiding self-report bias.",
+  "baseline": "Extend x402intel.uk with more chain-specific scrapers and per-rail metrics.",
+  "error": null,
+  "n": 0
+ },
+ {
+  "feature": "F1",
+  "angle": 1,
+  "answer": "Add a `scorecard` CLI to nano-mcp: `nano-mcp scorecard x402 --block <height> --lookback 30d`. It queries an archive node for all x402 calls from block <height> - lookback_blocks to <height>, writes results to a timestamped JSONL file (e.g., `x402_<height>.jsonl`) with each tx serialized and hashed (SHA256 of the file published). The script then reads that file and computes metrics: distinct buyers, recurring rate, total volume, fees—outputting JSON with the exact block range, file hash, and method version. To reproduce any published figure, rerun the CLI with the same block height; it will regenerate the identical JSONL (verified by hash) and compute identical numbers. Raw data files are pub",
+  "methodology": "Most people would dump static CSV files and a script; instead we create a deterministic module that, given a pinned block height, extracts x402 transactions from that exact 30-day lookback window, saves a canonical JSONL snapshot, and computes metrics from that snapshot; because this makes results exactly reproducible on any machine and usable programmatically as a repeatable CLI command.",
+  "baseline": "Publish raw transaction data alongside a Python script that computes metrics like distinct buyers and recurring rate, with a README explaining steps.",
+  "error": null,
+  "n": 1
+ },
+ {
+  "feature": "F1",
+  "angle": 2,
+  "answer": "Have the nano-mcp buyer SDK attach a signed nonce to each x402 payment: derive the nonce as SHA256(agent_id + timestamp + random_salt), sign it with the agent's private key, and include the signature in the payment's metadata. Publish the nonce, signature, and agent public key in a public append-only log (e.g., on IPFS). x402intel.uk then verifies the signature against the agent's key to confirm agent-initiated payments (distinguishing from human transfers). Anyone can re-run the verification from the log, ensuring reproducibility and eliminating trust in self-reported figures.",
+  "methodology": "Most people would trust self-reported data or add a flag to the payment, but that invites gaming; instead we should cryptographically bind the payment to an agent identity using a signed nonce, because it makes verification independent of self-reporting and fully reproducible.",
+  "baseline": "The biggest weakness is that on-chain data cannot prove a payment is agent-initiated; the obvious fix is to rely on self-reported call counts or add a flag in the payment.",
+  "error": null,
+  "n": 2
+ },
+ {
+  "feature": "F1",
+  "angle": 3,
+  "answer": "Tool: 'RailScope'. Core loop: (1) fetch raw blocks/transactions for each rail (XNO, x402-USDC-on-Base, MPP, AP2, cards) via public nodes/explorers; (2) extract per-payment fee = sum of network fee + protocol fee from tx data, time-to-finality = block timestamp - submission timestamp, freeze/clawback = static analysis of contract bytecode (flag if any admin function can reverse or freeze); (3) snapshot raw data + code version into an immutable archive (IPFS hash), write methodology with window; (4) run normalization + aggregation script to produce the scorecard; (5) for Nano share, count only nano receipts from x402 intel's buyer addresses (excluding own accounts). Anyone rerunning from the a",
+  "methodology": "Most people trust each rail's reported metrics; instead we build a pipeline that derives every figure from raw on-chain data and archives each data snapshot with a hash; because only then can a rerun exactly reproduce published numbers and no self-reported adoption can slip in.",
+  "baseline": "A script that queries each rail's API for fee, finality, freeze capability, and sums Nano payments from x402 counts.",
+  "error": null,
+  "n": 3
+ },
+ {
+  "feature": "F1",
+  "angle": 4,
+  "answer": "Implement an SPC (Statistical Process Control) module in the scorecard's Python repo: for each rail, ingest public x402 receipts and nano payment logs, compute control limits (x̄ ± 3σ) for buyer-rate and fee volatility, flag outliers, and output final metrics only after excluding points beyond limits—all in the reproducible script. This combines x402intel.uk's on-chain buyer structure with process-control mechanisms to avoid fake adoption spikes and ensure honest, reproducible figures.",
+  "methodology": "Most people average raw transaction data without filtering anomalies; instead, apply Shewhart control charts (from industrial quality control) to on-chain x402 buyer counts and fee series, dynamically setting bounds to exclude unusual test/pump traffic; because that yields robust, reproducible metrics and triggers manual review for anomalies.",
+  "baseline": "Publish each rail's average fee, time-to-finality, and freeze capability from a simple aggregation of collected transaction logs, trusting the raw numbers as-is.",
+  "error": null,
+  "n": 4
+ },
+ {
+  "feature": "F2",
+  "angle": 0,
+  "answer": "Name: Cross-Rail Settlement Canary Network (CSCN)\nMechanism: Deploy a permissionless network of independent probe agents (run by different community members) that each receive a small budget (e.g., $5/week) to execute a deterministic pseudo-random sequence of micro-purchases (price floor $0.001) across Nano, x402-UCSD-Base, MPP, AP2, and card rails. The sequence is seeded from a public blockchain hash (e.g., latest Ethereum block hash) to prevent cherry-picking. Each probe signs and publishes a structured receipt (initiation time, finality time, fee, freeze/clawback attempt) to an IPFS-snapped JSON, aggregated daily. The scorecard computes robust medians and interquartile ranges, excluding t",
+  "methodology": "Most people would build a single self-hosted canary for one rail; instead we build a decentralized network of randomized settlement probes across all rails with public cryptographic reporting; because it removes single-entity bias, expands coverage to all target rails, and strengthens reproducibility via independent observations.",
+  "baseline": "Run a single self-hosted canary (like F2) that buys tools daily on one rail (Base) and reports settlement figures, excluding its own volume.",
+  "error": null,
+  "n": 5
+ },
+ {
+  "feature": "F2",
+  "angle": 1,
+  "answer": "Deploy a canary contract on Base that daily selects a tool from a publicly signed whitelist of independent third-party addresses, sends USDC, and logs every event (amount, gas fee, tx hash, settlement timestamp). The scorecard script reads the contract's event log, verifies whitelist signatures, replays the on-chain transaction data to compute fee and time-to-finality exactly, and excludes any transaction whose payer is the contract address when computing adoption shares. The contract's bytecode, whitelist, and signing keys are published, making the whole process deterministic, auditable, and programmatically controllable without losing the canary's value.",
+  "methodology": "Most people would trust the published report; instead we turn the canary into an autonomous on-chain robot that emits raw, signed settlement data, because that makes the entire measurement and filtering process replayable from raw blockchain data by any program.",
+  "baseline": "Most people would simply scrape the published summary report from agent402.tools and manually recompute the scorecard numbers, trusting the host's methodology without independent auditability.",
+  "error": null,
+  "n": 6
+ },
+ {
+  "feature": "F2",
+  "angle": 2,
+  "answer": "Extend the canary to run the same daily paid tool purchases over every rail (Nano, x402-USDC-on-Base, MPP, AP2, card) using identical settlement-verified logic and price floor. Publish raw data and reproducible scripts for each rail, exclude canary's own accounts from ranked rows, and add independent third-party canaries per rail to cross-verify results, ensuring honest cross-rail comparisons.",
+  "methodology": "Most people would point to self-reporting bias; instead the critical flaw is that the canary only exercises the Base rail, making it useless for an open-rail scorecard that must compare multiple rails; because a scorecard that cannot compare rails fails its core purpose, regardless of bias.",
+  "baseline": "The biggest weakness is that the canary is self-operated, so the reported figures could be biased or manipulated.",
+  "error": null,
+  "n": 7
+ },
+ {
+  "feature": "F2",
+  "angle": 3,
+  "answer": "Tool: RailScan. Core loop: Daily canary sweep—for each rail, create a one-time address, pay $0.001 to a controlled receiver, log fee, timestamp, settlement confirmation, and attempt a clawback (if supported). All events logged with IDs and hashes. Probe results feed technical metrics (median fee, time-to-finality, clawback success). Adoption metrics use only public x402 counts and external Nano receipts, excluding any addresses under RailScan's registry. The entire pipeline is a deterministic script that reconstructs all figures from the published raw log, ensuring reproducibility and no self-inflation. Published with raw data and methodology, requiring human approval before external posts.",
+  "methodology": "Most people would fold their own test traffic into adoption metrics; instead we keep probe transactions in a separate namespace and derive adoption exclusively from third-party public data, so the index stays honest without hiding how it was built.",
+  "baseline": "Run a script that sends test payments on each rail, records metrics, and publishes them.",
+  "error": null,
+  "n": 8
+ },
+ {
+  "feature": "F2",
+  "angle": 4,
+  "answer": "Idea: 'Canary-Referenced Peer Prediction' – In nano-mcp, add a 'TruthfulRails' module. Each participating agent periodically submits a report of their recent settlements (rail, fee, time-to-finality) and a prediction of the canary's next settlement metric for that same rail. Use a proper scoring rule (e.g., quadratic) to score predictions against the actual canary outcome. Only agents whose predictions are accurate (and whose reported own data matches their prediction) contribute to the scorecard; their weight is proportional to their score. This leverages peer prediction (from crowdsourcing) to incentivize truthful reports because agents maximize score by both reporting honestly and predict",
+  "methodology": "Most people would trust self-reports or rely only on canary data; instead we use peer prediction (a mechanism from crowdsourcing) to make external agents' reports incentive-compatible with the canary's ground-truth measurements; because this yields honest, large-scale data while keeping the canary as a reference point.",
+  "baseline": "Build the scorecard by aggregating the canary's data and any self-reported agent data without verification.",
+  "error": null,
+  "n": 9
+ },
+ {
+  "feature": "F3",
+  "angle": 0,
+  "answer": "Name: Hash-Pinned Reproducible Scorecard. Mechanism: In the repo, add manifest.json listing SHA-256 of every raw data file, the exact script version (git commit), and SHA-256 of computed figures. Script includes a --verify flag that recomputes and compares; any mismatch aborts. Offline-sign the manifest, expose public key in README. Why it beats original: original only allows rerun; this makes the rerun also prove no data/script has been altered since publication, so figures are not just reproducible but verifiably authentic.",
+  "methodology": "Most people would just publish raw data and a script; instead we pin each raw file and the script to a SHA-256 hash and make the script's verify mode re-check the entire chain before outputting figures; because this turns reproducibility into tamper-evidence and catches any post-hoc edits.",
+  "baseline": "Publish raw data and a script that recomputes the scorecard figures from it, and require that anyone can rerun it to get the same numbers.",
+  "error": null,
+  "n": 10
+ },
+ {
+  "feature": "F3",
+  "angle": 1,
+  "answer": "Create a 'reproducibility covenant' in the repo: a manifest (JSON) lists each published figure, its expected value, a SHA-256 of the raw input data, the Docker image tag, and the exact CLI command. The repo has a GitHub Action that, on every PR and release, spins up that image, runs the command, and compares outputs to the manifest; any mismatch blocks merge. Also ship a Python script verify.py that performs the same check locally, so anyone can rerun and confirm. This makes the scorecard programmatically controllable because the verification is automated and fails loudly.",
+  "methodology": "Most people publish raw data and a script; instead, treat the scorecard as a self-verifying artifact: every figure is generated by a pinned Docker container from hashed raw data, and a CI bot reruns the exact command on every commit and fails if any published number changes, so reproducibility is machine-enforced, not trust-based.",
+  "baseline": "Publish raw data and the analysis script in a public repo with a README.",
+  "error": null,
+  "n": 11
+ },
+ {
+  "feature": "F3",
+  "angle": 2,
+  "answer": "Biggest weakness: raw data and environment drift (data updated after publication, library changes, external API calls) prevent exact reproduction. Fix: publish a self-contained reproducibility kit — a Docker image with pinned OS/Python/libraries, an immutable raw-data snapshot (SHA-256 pinned), and a run script that verifies hashes before computing all figures, emitting a result manifest. The kit is built from the same commit as published figures; anyone runs `./reproduce.sh` and gets byte-identical output. Include a CI check that rebuilds the kit from scratch and fails if any published figure changes.",
+  "methodology": "Most people think publishing raw data and script suffices for reproducibility; instead we wrap everything in a versioned, hash-pinned Docker image with immutable data snapshot, because raw data updates and environment drift make plain scripts unreproducible.",
+  "baseline": "Publish raw data and script, so anyone can rerun.",
+  "error": null,
+  "n": 12
+ },
+ {
+  "feature": "F3",
+  "angle": 3,
+  "answer": "Tool: VeriRail — a CLI/CI harness in nano-mcp that wraps the scorecard script. Core loop: `rail run` fetches raw data, executes script, computes figures, and records SHA-256 hashes of inputs, script, and output. `rail verify` reruns in a clean container and compares hashes, failing if mismatch. `rail publish` uploads raw data, script, and manifest to public repo after human approval. Ensures own-test-traffic is excluded by requiring a whitelist of agent accounts in the script. This makes every published figure reproducible by anyone running `rail verify` on the repo.",
+  "methodology": "Most people will create a static report; instead, we build a reproducibility harness that hashes every input, script, and output and automatically verifies on each update, because honest figures need independent rerunning, not trust.",
+  "baseline": "Write a script that computes metrics and publish raw data and script.",
+  "error": null,
+  "n": 13
+ },
+ {
+  "feature": "F3",
+  "angle": 4,
+  "answer": "For each published figure (fee, finality, clawback capability), attach a hash of the input data snapshot, script commit, and Docker image digest. Deploy a smart contract (on Base) holding a publisher bond. Anyone can rerun the pipeline and, if their output differs, submit a dispute transaction with their result; the contract verifies the script hash and data commit, and if genuinely mismatched, the bond is paid as a bounty. This combines F3 with a 'verification escrow' from smart-contract law, pre-registering the exact computation and financially incentivizing independent reproduction.",
+  "methodology": "Most people publish raw data and code; instead we add a smart-contract verification bond to every scorecard figure, because it transforms reproducibility from an assertion into a financially enforced guarantee anyone can dispute.",
+  "baseline": "Publish raw data, a pinned script version, and rerun instructions as a README, trusting readers to follow them.",
+  "error": null,
+  "n": 14
+ },
+ {
+  "feature": "F4",
+  "angle": 0,
+  "answer": "LiveRail Bench: a Python executable in the repo that runs a nano payment via the SDK, a USDC-on-Base transaction with sponsored gas on testnet, and a simulated card transaction via Stripe test mode; it records observed fee and finality, and reports freeze capability by inspecting contract code for admin controls. Output is a machine-readable JSON with per-rail metrics, and can be rerun exactly with `python -m scorecard.bench`. This beats F4 because it replaces third-party claims with direct, auditable measurements that automatically adapt to network changes.",
+  "methodology": "Most people would build a static table from documented values; instead we'll implement a reproducible measurement harness that actually performs a minimal transaction on each rail and records the observed metrics automatically, because that guarantees honesty and verifiability.",
+  "baseline": "Feature F4: A static comparison table listing fee, time-to-finality, and freeze/clawback capability per rail.",
+  "error": null,
+  "n": 15
+ },
+ {
+  "feature": "F4",
+  "angle": 1,
+  "answer": "Build a 'railmeter' tool in nano-mcp that: (1) defines a canonical $1 test payment; (2) executes it once on each rail's testnet (or uses recorded replays) and stores raw event logs (submission, inclusion, fee) as JSON in `/data`; (3) the `scorecard` command reads these files and computes fee (sum of fees from logs), time-to-finality (inclusion - submission timestamp), and freeze capability (static matrix from config); (4) publishes a Markdown report with per-rail metrics and script hash; (5) CI reruns the command and fails if output differs from committed report. This ensures exact reproducibility and programmatic control.",
+  "methodology": "Most people manually compile fees and times from docs and ad-hoc tests; instead we create a deterministic benchmark script that ingests a published set of raw transaction event logs (submission, inclusion, fee) captured from each rail's testnet/sandboxcars, and computes comparative metrics using a fixed formula, because this ensures identical outputs on every rerun and avoids live-test variability.",
+  "baseline": "Manually gather fees, times, and freeze info from each rail's documentation and run ad-hoc tests.",
+  "error": null,
+  "n": 16
+ },
+ {
+  "feature": "F4",
+  "angle": 2,
+  "answer": "Biggest weakness: F4 compares vendor-published specs, so metrics are measured under different assumptions and cannot be verified. Fix: add a 'RailBench' script that, for each rail, fires a €0.50 agent payment to a test address, records the exact amount debited/credited, wall-clock time to finality per the rail's rule, then at +1 min attempts a freeze/reversal (where available) to score capability. The script writes raw JSON logs and a generated table; any published figure must be a direct output of that script on the repo's data. This makes all three metrics reproducible and comparable, and keeps the scorecard self-auditing.",
+  "methodology": "Most people would quote spec sheets; instead we run a scripted benchmark that sends identical micropayments through each rail and captures fee, finality, and freeze outcome, because that ensures apples-to-apples honesty.",
+  "baseline": "The weakness is that fee and finality figures come from vendor docs, not from one controlled experiment.",
+  "error": null,
+  "n": 17
+ },
+ {
+  "feature": "F4",
+  "angle": 3,
+  "answer": "Tool: RailScore MCP. Core loop: (1) Ingest raw evidence: public x402 counts, Base USDC tx receipts, Nano receipts (only payer != agent-owned accounts), MPP/AP2/card fee schedules. (2) Append immutable JSONL records with rail, amount, fee, finality, freeze capability, source URL, timestamp. (3) Run deterministic `rebuild_scorecard.py` to recompute all metrics and Nano share (non-self receipts only); outputs `scorecard.json` + SHA-256. (4) Expose MCP tool `compare_rails(a,b)` that reruns script read-only, compares hash, returns metrics with verification hash and raw-data commit; mismatch => alert. (5) Publish only after human approval; no custody.",
+  "methodology": "Most people would publish a static scorecard; instead make it a live MCP endpoint that re-derives every metric from raw JSONL via a deterministic script on each call, because agent decisions need current, auditable numbers, not a stale snapshot.",
+  "baseline": "A one-time reference table in the README comparing rails by fee, finality, and freeze ability, updated manually.",
+  "error": null,
+  "n": 18
+ },
+ {
+  "feature": "F4",
+  "angle": 4,
+  "answer": "The scorecard includes a 'Freeze Drill' module (inspired by Chaos Monkey). Every run, it uses the existing buyer SDK to send a tiny (e.g., $0.01) test payment on each rail, then attempts to reverse or freeze it. It logs time-to-attempt, success, and reversal latency. These observed freeze metrics are combined with fee and finality from actual agent payments into a risk-adjusted index. All raw data and scripts are public; the drill runs on testnets or with human-approved micro amounts. This turns static claims into reproducible measurements.",
+  "methodology": "Most people publish static metrics from documentation; instead, we run an automated chaos-engineering 'freeze drill' that attempts real clawbacks on each rail and publishes times/failure rates alongside fee and finality measurements; because this empirically verifies freeze/clawback rather than trusting features, making the scorecard honest and reproducible.",
+  "baseline": "Create a static table comparing fees, finality times, and freeze/clawback capabilities per rail.",
+  "error": null,
+  "n": 19
+ },
+ {
+  "feature": "F5",
+  "angle": 0,
+  "answer": "Name: Hash-Linked Receipt Graph (HLRG). Mechanism: Each agent publishes a payment intent (amount, destination, random nonce) to a public IPFS timestamp log. Both the x402 request and the Nano transaction must include that nonce. The scorecard's script fetches all intents, filters out payer accounts in NANO_AGENT_OWN_ACCOUNTS, then matches settlement records from each rail that carry the nonce. Only matched payments count as observed agent payments. Share = (Nano matches) / (all matches across rails). This beats the original by eliminating false positives from unrelated transfers, ensuring every counted payment is a genuine agent payment, and making the figure fully reproducible from public d",
+  "methodology": "Most people would just aggregate separate public counts; instead we require each payment to carry a unique, publicly verifiable nonce that appears on both the rail's log and the Nano receipt, so only confirmed agent payments are counted; because this eliminates miscounts from unrelated transfers and ensures reproducibility.",
+  "baseline": "Straightforwardly compute Nano's share as (number of Nano payments from external payers) divided by (total public x402 counts + those Nano payments).",
+  "error": null,
+  "n": 20
+ },
+ {
+  "feature": "F5",
+  "angle": 1,
+  "answer": "Implement a signed own-account registry: a JSON file with Nano addresses, version, and a nonce, signed with the agent's Ed25519 key. The program downloads (or reads) this file, verifies the signature, and excludes any payer address in the list from F5 counts. It outputs the registry hash/version in the report; fails if signature is invalid; uses a lockfile to pin the exact version for reproducibility. This makes exclusion transparent, auditable, and program-controlled, while preventing accidental inclusion of test traffic.",
+  "methodology": "Most people manually track and subtract test traffic; instead we publish a signed, versioned registry of own Nano accounts and have the script automatically fetch, verify, and filter, because that makes the exclusion rule machine-checkable and recalculable from raw data.",
+  "baseline": "Manually track and subtract test payments from Nano's share, hoping the list stays accurate.",
+  "error": null,
+  "n": 21
+ },
+ {
+  "feature": "F5",
+  "angle": 2,
+  "answer": "Weakness: raw nano receipts include non-agent traffic, inflating Nano's share. Idea: Use the MCP's one-time address issuance as a filter. Only count nano payments to addresses issued for a pay-per-call request, and ensure the sending account is not on our own-test list. Then Nano share = (count of these nano payments) / (count of these nano payments + public x402 count). Publish the script and the full list of issued addresses for exact reproducibility.",
+  "methodology": "Most people would simply sum all incoming nano transactions to a service and compare to x402 counts; instead we require each nano payment to be tied to a verified API call via the one-time address issued by our MCP, excluding payments from our own accounts; because that eliminates non-agent noise and keeps the metric honest and reproducible.",
+  "baseline": "Count all nano payments received by the MCP service and divide by (that count + public x402 count).",
+  "error": null,
+  "n": 22
+ },
+ {
+  "feature": "F5",
+  "angle": 3,
+  "answer": "Tool: ExcluShare – an MCP service that collects self-declared test-payment IDs from agents across rails (via a simple API), fetches public per-rail counts and transaction feeds, then computes shares after stripping declared IDs. Core loop: 1) agents register own payer addresses/hashes; 2) scheduler triggers ingest of public data; 3) exclusions applied; 4) shares computed; 5) report generated with checksum. Includes a 'convergence check' warning when total excluded exceeds 5% of any rail. Reproducible because inputs and exclusion list are versioned.",
+  "methodology": "Most people count every transaction as adoption; instead we build ExcluShare, a tool that ingests a public 'own-payment' registry (where agents self-declare their own payment IDs) and automatically filters those from all rail counts; because this makes share metrics universally honest without requiring per-rail address granularity.",
+  "baseline": "Count all transactions from public APIs and report market share.",
+  "error": null,
+  "n": 23
+ },
+ {
+  "feature": "F5",
+  "angle": 4,
+  "answer": "In the nano-mcp repo, add a honeypot registry module. Our test payments always send to pre-registered decoy addresses (e.g., *.hnp). The scorecard script fetches all nano and x402 transactions, removes any transaction where sender or receiver is a honeypot (and its counterpart), then computes Nano's share as non-honeypot nano payments divided by total non-honeypot agent payments. Publish the honeypot addresses and script for full reproducibility and exact reproduction of figures.",
+  "methodology": "Most people would exclude own accounts using a static address list; instead, we deploy a honeypot network of decoy addresses that only receive our test traffic, and any payment touching a honeypot is automatically excluded from the share calculation, because this catches accidentally used new addresses and provides a verifiable zero-own-traffic guarantee.",
+  "baseline": "Collect fee, time-to-finality, freeze/clawback data from each rail, and compute Nano's share from public x402 counts plus nano receipts excluding own accounts via a static address list.",
+  "error": null,
+  "n": 24
+ }
+]
