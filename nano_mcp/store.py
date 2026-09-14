@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS approvals (
     amount_raw  TEXT,
     approved_at REAL
 );
+CREATE TABLE IF NOT EXISTS quote_expiry (
+    request_id  TEXT PRIMARY KEY,
+    expires_at  REAL NOT NULL
+);
 """
 
 
@@ -86,3 +90,21 @@ class ApprovalStore:
             "amount_raw": int(row[3]) if row[3] else 0,
             "approved_at": row[4],
         }
+
+    # ---- dollar-quote expiry record (block 6) ----
+    def record_quote_expiry(self, request_id: str, expires_at: float) -> None:
+        """Remember when a dollar quote for request_id expires so verify_payment
+        can refuse a payment made after the 30s honour window."""
+        with self._lock, closing(self._conn.execute(
+            "INSERT INTO quote_expiry (request_id, expires_at) VALUES (?,?) "
+            "ON CONFLICT(request_id) DO UPDATE SET expires_at=excluded.expires_at",
+            (request_id, expires_at),
+        )):
+            ...
+        self._conn.commit()
+
+    def quote_expiry(self, request_id: str) -> float | None:
+        row = self._conn.execute(
+            "SELECT expires_at FROM quote_expiry WHERE request_id=?", (request_id,)
+        ).fetchone()
+        return row[0] if row else None

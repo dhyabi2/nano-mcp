@@ -59,6 +59,20 @@
    "statement": "External payments are journaled as nano_tx while own accounts are never logged.",
    "test": "a test hits the journal gate: one nano_tx row lands in a scratch journal db for an external payer and zero rows for an account in NANO_AGENT_OWN_ACCOUNTS.",
    "minted": "2026-09-14T00:58:31+00:00"
+  },
+  {
+   "id": "L8",
+   "block": 6,
+   "statement": "A USD-priced quote returns an exact XNO amount computed from the MEDIAN of three independent public price sources, and never holds or converts anyone's money.",
+   "test": "test calls a pricing function with three injected XNO/USD rates and asserts the returned raw XNO amount equals ceil(usd/median * 10^30); a live network test fetches CoinGecko, CoinPaprika and Kucoin and asserts a numeric USD median returns; the quote path performs no balance change or transfer (pure computation).",
+   "minted": "2026-09-14T01:27:17+00:00"
+  },
+  {
+   "id": "L9",
+   "block": 6,
+   "statement": "A dollar quote expires in 30 seconds or less.",
+   "test": "test mints a quote with an injectable clock at t, asserting expires_at - t <= 30s; a second test advances the clock past expires_at and asserts verify_payment returns status='expired' and does not approve.",
+   "minted": "2026-09-14T01:27:26+00:00"
   }
  ],
  "blocks": {
@@ -409,6 +423,229 @@
       }
      ],
      "at": "2026-09-14T01:15:34+00:00"
+    }
+   ]
+  },
+  "6": {
+   "status": "stuck",
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "Missing: a live account_key round-trip of a derived SDK account. test_crypto.py:44-56 verifies seed->priv, priv->pub, pub->address against official vectors, and test_crypto.py:59-61 verifies address encoding against static rpc.nano.to ground truth, but no test derives an SDK account and performs a live account_key RPC round-trip against rpc.nano.to."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-28 posts account_balance to NANO_RPC_URL for nano_1faucet7b6xjyha7m13objpn5ubkquzd6ska8kwopzf1ecbfmn35d1zey3ys and asserts raw.isdigit() and int(raw) > 0."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing: a live signed-send test that processes a block via rpc.nano.to and later finds the resulting hash in account_history. The provided tests (test_wallet.py, test_client.py) use stubs or only read balance/history; no test broadcasts a send and verifies on-chain acceptance."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63 raises InsufficientBalance when sending more than balance, and tests/test_wallet.py:66-77 raises DailyCapExceeded when an amount would breach the daily cap."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-61 asserts different addresses for different request_ids, and tests/test_payments.py:65-68 asserts the same address for repeated request_id. tests/test_server.py:59-71 reinforces through the MCP tool surface."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 drives a simulated on-chain send to a derived address, first verify returns approved, second returns spent. tests/test_server.py:76-91 repeats via MCP server call_tool."
+      },
+      {
+       "id": "L6",
+       "pass": false,
+       "evidence": "Missing: an end-to-end probe where one agent pays one service via the SDK and MCP server, then re-calls with the same request_id and observes no double execution. The evidence only exercises components (test_payments.py, test_server.py) but no integrated scenario."
+      },
+      {
+       "id": "L7",
+       "pass": false,
+       "evidence": "Missing: any test of the journal gate. No test inserts a nano_tx row for an external payer or verifies zero rows for an own account. No test references NANO_AGENT_OWN_ACCOUNTS or a scratch journal db."
+      },
+      {
+       "id": "L8",
+       "pass": false,
+       "evidence": "Partial: tests/test_pricing.py:86-94 computes exact raw with injected median, and tests/test_pricing.py:172-184 fetches three live sources. However, the law requires 'the quote path performs no balance change or transfer (pure computation)'. No test asserts that no balance change or transfer occurs; the quote test at tests/test_pricing.py:97-117 only validates returned fields and address format, not the absence of side effects."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:121-134 uses injectable clock at 5000.0 and asserts expires_at - 5000.0 <= 30.0 and q.expired() transitions. tests/test_pricing.py:137-153 advances clock past expiry and asserts verify_payment returns status='expired' and store.is_approved is False."
+      }
+     ],
+     "at": "2026-09-14T01:34:24+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "Evidence missing: the actual test code that verifies seed->priv->pub->address against official vectors is not present. tests/test_crypto.py is truncated (only its docstring appears: 'Crypto/units tests. Address vectors verified against the live rpc.nano.to account_key RPC.'). No passable proof is shown."
+      },
+      {
+       "id": "L1",
+       "pass": false,
+       "evidence": "Evidence missing: no test posts account_balance to a real NANO_RPC_URL and asserts a numeric raw balance. All clients used in tests are stubs (e.g., tests/test_server.py StubClient, tests/test_payments.py StubClient). No live rpc.nano.to balance/history call is present."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Evidence missing: no live send is broadcast and later found in account_history. test_wallet.py's test_send_within_balance_and_cap_publishes uses a StubClient (does not hit rpc.nano.to). test_probe.py explicitly states 'No real XNO moves — there is no funded wallet... the live-funded confirmation remains the recorded L2/L3 STUCK.'"
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63 asserts send with amount > balance raises InsufficientBalance; tests/test_wallet.py:66-77 asserts send exceeding the 0.01 XNO/day cap raises DailyCapExceeded. Both raise without publishing."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-61 (test_l4_distinct_addresses_for_different_request_ids) asserts two request_ids yield different addresses; lines 65-68 (test_l4_same_request_id_reproduces_same_address) asserts repeating one id gives the same address. Also tests/test_server.py:52-73 covers the MCP tool surface."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 (test_l5_approves_once_when_onchain_send_seen) simulates a matching on-chain send and asserts status='approved' then status='spent' on repeat. tests/test_server.py:76-91 (test_mcp_verify_approves_once) verifies exactly-once through the MCP server."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-111 (test_end_to_end_pay_per_call_succeeds_and_is_replay_safe) wires SDK wallet, MCP server, and service; after one successful verification it re-calls with same request_id and asserts status='spent' (lines 99-99)."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-58 (test_append_logs_external_once) asserts one nano_tx row for an external payer; lines 62-72 (test_append_never_logs_own_account) asserts zero rows for an account in NANO_AGENT_OWN_ACCOUNTS."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:86-94 (test_exact_xno_amount_uses_fixed_rate_offline) asserts raw == ceil(usd/median)*10^30 with injected rates; lines 97-117 (test_quote_usd_returns_exact_median_amount_and_no_money_moves) verifies quote_usd uses median and no balance/transfer; lines 145-159 (test_quote_usd_is_pure_computation_no_chain_contact) proves no chain contact; lines 213-226 (test_live_median_of_three_sources_returns_numeric) live-fetches CoinGecko, CoinPaprika, Kucoin and asserts a numeric median."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-176 (test_quote_expires_in_30_seconds_or_less) asserts expires_at - t <= 30s; lines 179-195 (test_verify_refuses_expired_quote__does_not_approve) advances clock past expiry and asserts status='expired' and not approved."
+      }
+     ],
+     "at": "2026-09-14T01:42:06+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-46 `def test_private_key_derivation_matches_official_vector(): priv = derive_private_key(DOCS_SEED, index=1); assert priv.hex().upper() == DOCS_PRIV`; :49-56 key_expand void vectors; :59-68 NODE_PAIRS encode/decode; tests/test_client.py:38-47 live account_key round-trip `node_key.lower() == acct.public_key.hex()`; all passed (`58 passed`)."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:22-28 `test_live_balance_read` posts `account_balance` to NANO_RPC_URL for `nano_1faucet...` and asserts `raw.isdigit()` and `int(raw) > 0`; :31-34 history read; test output `58 passed` shows no skips, so live tests executed."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing live send test: no test posts a signed send to rpc.nano.to, gets a process hash, and finds that hash in account_history. test_probe.py:12-17 explicitly states `HONEST SCOPE: the SDK's send leg uses a stub client standing in for rpc.nano.to ... No real XNO moves ... the live-funded confirmation remains the recorded L2/L3 STUCK.`"
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63 `test_send_over_balance_raises_without_publishing` asserts `InsufficientBalance` and no process; :66-77 `test_send_over_daily_cap_raises_without_publishing` fills cap then asserts `DailyCapExceeded` on next send with only one published process; :80-90 proves daily reset."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68 `test_l4_distinct_addresses_for_different_request_ids` and `test_l4_same_request_id_reproduces_same_address`; tests/test_server.py:59-71 MCP-level quote distinct/stable."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 `test_l5_approves_once_when_onchain_send_seen` returns `approved` with tx_hash then `spent` on repeat; tests/test_server.py:84-91 verifies through MCP tool; concurrent exacly-once at :137-157."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-109 end-to-end probe: wallet.send to one-time address, `verify_payment` returns `\"approved\"`, second call returns `\"spent\"` (no double execution), all through build_server with real components."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-59 `test_append_logs_external_once` journals one `nano_tx` row with external=True; :62-72 `test_append_never_logs_own_account` yields zero rows; test_probe.py:102-109 same gate with real journal writer."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:40-74 median and ceil exact conversion; :86-94 `test_exact_xno_amount_uses_fixed_rate_offline` asserts median rate and exact raw; :97-117 quote_usd carries exact amount and address; :145-159 `test_quote_usd_is_pure_computation_no_chain_contact` proves no client/chain contact; :213-226 live median numeric. `58 passed` includes live network test."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-176 `test_quote_expires_in_30_seconds_or_less` asserts `q.expires_at - 5000.0 <= 30.0` and expired after; :179-196 `test_verify_refuses_expired_quote__does_not_approve` returns status='expired' and store not approved."
+      }
+     ],
+     "at": "2026-09-14T01:45:55+00:00"
+    },
+    {
+     "kind": "unwind",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-56: DOCS_SEED derives DOCS_PRIV, DOCS_PRIV_EXPAND->DOCS_PUB_EXPAND, DOCS_PUB_EXPAND->DOCS_ADDR_EXPAND; tests/test_crypto.py:59-68: NODE_PAIRS encode/decode against known addresses; tests/test_client.py:38-47: live account_key round-trip matches derived account; /tmp/all-test.txt: '58 passed'"
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:22-28: test_live_balance_read posts account_balance to NANO_RPC_URL and asserts numeric raw balance; tests/test_client.py:31-34: test_live_history_read; /tmp/all-test.txt: '58 passed' (no skips reported)"
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing: no test proves a real live signed send through rpc.nano.to is accepted and later found in account_history. tests/test_probe.py:17-18 explicitly says 'no real XNO moves ... live-funded confirmation remains ... STUCK.' test_wallet and test_probe use stubs returning fake hashes. No command output shows a live sent block hash appearing in history."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-62: send over balance raises InsufficientBalance and no process call is published; tests/test_wallet.py:66-77: after filling 0.01 XNO cap, any further send raises DailyCapExceeded and only first send is published; /tmp/all-test.txt: '58 passed'"
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68: distinct addresses for different request_ids, same address for repeated id; tests/test_server.py:59-71: MCP quote tool returns different addresses for different ids and stable address for repeated id; /tmp/all-test.txt: '58 passed'"
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108: first verify_payment returns approved with tx_hash, second returns spent; tests/test_payments.py:137-156: 8 concurrent calls yield exactly 1 approved; tests/test_server.py:84-91: verify_payment tool approves once then spent; /tmp/all-test.txt: '58 passed'"
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-111: full probe wiring SDK wallet, MCP server, PaymentService; step 3 verify returns '\"approved\"' (line 93), step 4 second call returns '\"spent\"' (line 99); /tmp/all-test.txt: '58 passed'"
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-59: external payer append_nano_tx returns True and journals one nano_tx row; tests/test_evidence.py:62-72: own account append returns False and zero rows; tests/test_probe.py:102-109: ext logged, own not logged; /tmp/all-test.txt: '58 passed'"
+      }
+     ],
+     "at": "2026-09-14T01:48:52+00:00"
     }
    ]
   }

@@ -16,13 +16,16 @@ on-chain lookup and the exactly-once approval can be tested without moving funds
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from decimal import Decimal
+from typing import Callable, Protocol, runtime_checkable
 
 from nano_sdk.client import RpcClient
 from nano_sdk.units import raw_to_nano
 
 from .oneshot import derive_one_time_account, new_request_id
+from .pricing import QUOTE_TTL_SECONDS, default_rate, exact_xno_amount
 from .store import ApprovalStore
 
 
@@ -31,14 +34,31 @@ class Quote:
     request_id: str
     address: str
     price_raw: int
+    price_usd: str | None = None
+    rate_xno_usd: str | None = None
+    expires_at: float | None = None
 
     def as_dict(self) -> dict:
-        return {
+        out = {
             "request_id": self.request_id,
             "address": self.address,
             "price_raw": str(self.price_raw),
             "price_nano": str(raw_to_nano(self.price_raw)),
         }
+        if self.price_usd is not None:
+            out["price_usd"] = self.price_usd
+        if self.rate_xno_usd is not None:
+            out["rate_xno_usd"] = self.rate_xno_usd
+        if self.expires_at is not None:
+            out["expires_at"] = f"{self.expires_at:.3f}"
+        return out
+
+    def expired(self, now: float | None = None) -> bool:
+        """True if this quote's honour window has passed (no window = never)."""
+        if self.expires_at is None:
+            return False
+        now = now if now is not None else time.time()
+        return now > self.expires_at
 
 
 class HistoryClient(Protocol):
@@ -53,10 +73,16 @@ class PaymentService:
         master_secret: bytes,
         client: HistoryClient | None = None,
         store: ApprovalStore | None = None,
+        rate_source: Callable[[], Decimal] | None = None,
+        clock: Callable[[], float] | None = None,
     ):
         self.master_secret = master_secret
         self.client = client if client is not None else RpcClient()
         self.store = store if store is not None else ApprovalStore()
+        # dollar-quote rate source (default: live median of 3 sources);
+        # an injectable fixed-rate source lets tests compute offline.
+        self.rate_source = rate_source if rate_source is not None else default_rate
+        self.clock = clock if clock is not None else time.time
 
     def one_time_account(self, request_id: str):
         return derive_one_time_account(self.master_secret, request_id)
@@ -65,6 +91,33 @@ class PaymentService:
         rid = request_id or new_request_id()
         acct = self.one_time_account(rid)
         return Quote(request_id=rid, address=acct.address, price_raw=int(price_raw))
+
+    def quote_usd(
+        self,
+        price_usd: str | Decimal,
+        request_id: str | None = None,
+    ) -> Quote:
+        """Price a call in USD: convert to the exact XNO raw amount via the live
+        median of three price sources and return a quote that expires in <=30s.
+
+        Pure computation — no balance is held, converted or sent here; the buyer
+        pays the returned price_raw directly to the one-time address on-chain.
+        """
+        rate = Decimal(str(self.rate_source()))
+        price = Decimal(str(price_usd))
+        exact_raw, _ = exact_xno_amount(price, rate_xno_usd=rate)
+        rid = request_id or new_request_id()
+        acct = self.one_time_account(rid)
+        expires_at = self.clock() + QUOTE_TTL_SECONDS
+        self.store.record_quote_expiry(rid, expires_at)
+        return Quote(
+            request_id=rid,
+            address=acct.address,
+            price_raw=exact_raw,
+            price_usd=format(price, "f"),
+            rate_xno_usd=format(rate, "f"),
+            expires_at=expires_at,
+        )
 
     def _onchain_paid(self, account, amount_raw: int) -> str | None:
         """Return the tx hash of a confirmed on-chain send *to* `account` of at
@@ -119,6 +172,15 @@ class PaymentService:
                 "request_id": request_id,
                 "address": acct.address,
                 "tx_hash": existing["tx_hash"],
+            }
+
+        # block-6: a dollar quote paid after its 30s honour window is refused.
+        expiry = self.store.quote_expiry(request_id)
+        if expiry is not None and self.clock() > expiry:
+            return {
+                "status": "expired",
+                "request_id": request_id,
+                "address": acct.address,
             }
 
         if require_onchain:

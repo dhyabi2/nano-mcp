@@ -102,6 +102,33 @@ in-process MCP tests with a stub history client).
 Laws: L6 end-to-end pay-per-call succeeds and is replay-safe (VERIFIED by probe).
 L7 external payments are journaled as nano_tx, own accounts never (VERIFIED).
 
+## Block 6 — dollar-priced quotes (USD price → exact XNO via median of 3) — done this session
+- `nano_mcp/pricing.py`: USD→XNO conversion as PURE computation (no custody, no
+  conversion, no chain contact). Fetches the USD/XNO rate from THREE independent
+  public sources (CoinGecko, CoinPaprika, Kucoin), takes the MEDIAN, and converts
+  a USD price to the exact integer raw XNO via rounding UP (ceiling) so the seller
+  never under-receives. Tolerates one source failing; requires ≥2 healthy. All
+  money math in Decimal (1 XNO = 10^30 raw), raw always an integer.
+- `PaymentService.quote_usd(price_usd)` returns {request_id, address, price_raw,
+  price_usd, rate_xno_usd, expires_at} with `expires_at = now + 30s`; the expiry is
+  recorded in the store so `verify_payment` refuses a payment made after the 30s
+  honour window (status='expired', never approved). `rate_source`/`clock` are
+  injectable for offline tests.
+- `quote_usd` MCP tool added. L8 (exact median XNO amount + no money moves) and
+  L9 (≤30s expiry) minted. 12 new tests (offline median/ceil/expiry onto a fixed
+  rate; a spy client proving the quote path performs NO chain contact; live
+  median-of-three-source numeric test). 58 tests pass (46 offline + 12, incl.
+  2 live network).
+- ledger verify block 6: L0,L1,L3,L4,L5,L6,L7,L8,L9 PASS; L2 STUCK (no funded
+  wallet — the standing honest gap from block 3, not a regression). Block 6's own
+  laws L8/L9 PASS.
+
+Laws: L8 a USD-price quote yields the exact XNO amount from the MEDIAN of three
+independent sources and never holds/converts money (VERIFIED offline across all
+laws + live median test).
+L9 a dollar quote expires within 30 seconds (VERIFIED: quote TTL ≤30s and
+verify_payment returns 'expired' and never approves past the window).
+
 ## Verification cadence
 After each block: `ledger verify --block N` (second model, quoted evidence), then `ledger unwind`
 for earlier laws, follow STUCK/Δ rules. Probe (block 5): one scenario, distinct evidence per law.

@@ -78,6 +78,17 @@ def build_server(pay: PaymentService, title: str = "nano-mcp pay-per-call") -> M
         return q.as_dict()
 
     @server.tool()
+    def quote_usd(price_usd: str, request_id: str | None = None) -> dict:
+        """Price a call in dollars. Converts the USD price to the exact XNO amount
+        via the MEDIAN of three independent public price sources and returns
+        {request_id, address, price_raw, price_usd, rate_xno_usd, expires_at}.
+        The quote expires in <=30s; pay the exact price_raw to `address` before
+        that, then call verify_payment(request_id, price_raw). This is pure
+        computation — nothing is held or converted."""
+        q = srv.quote_usd(price_usd, request_id=request_id)
+        return q.as_dict()
+
+    @server.tool()
     def verify_payment(request_id: str, amount_raw: str, require_onchain: bool = True) -> dict:
         """Service side: approve the call for request_id once an on-chain send of at
         least amount_raw is confirmed to its one-time address. Approves exactly once;
