@@ -150,6 +150,20 @@
    "statement": "A spent payment proof is refused so one payment never serves the resource twice",
    "test": "tests/test_httpx402.py replays the same spent payment-signature header a second time and asserts HTTP 402 with the protected result absent, because the facilitator's atomic single-use claim consumes the one proof exactly once.",
    "minted": "2026-09-14T09:47:08+00:00"
+  },
+  {
+   "id": "L21",
+   "block": 15,
+   "statement": "The MCP paidTool wrapper refuses a spent or replayed payment proof, so one payment never serves a protected tool result twice.",
+   "test": "tests/test_paidtool.py: calling paid_tool_execute twice with the same request_id/paymentProof returns ok on the first and refused on the second, and the second returns no protected result — the facilitator's atomic single-use claim consumes the proof exactly once across MCP calls.",
+   "minted": "2026-09-14T10:09:50+00:00"
+  },
+  {
+   "id": "L22",
+   "block": 15,
+   "statement": "The paidTool wrapper issues a one-time nano payTo then serves the result only after the proof is verified and settled on two RPCs.",
+   "test": "tests/test_paidtool.py drives the real MCPServer in-process (mcp v2): paid_tool_request returns a distinct one-time nano_ payTo + exact amount per call; paid_tool_execute with a 64-hex proof the stub nodes confirm on both endpoints returns the protected result exactly once; fail-closed when one of two endpoints errors; wrong amount or missing requestId refused. Full suite 130+ passes.",
+   "minted": "2026-09-14T10:09:57+00:00"
   }
  ],
  "blocks": {
@@ -2911,6 +2925,10 @@
      "at": "2026-09-14T09:54:00+00:00"
     }
    ]
+  },
+  "15": {
+   "status": "pending",
+   "attempts": []
   }
  },
  "deltas": [

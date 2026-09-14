@@ -382,3 +382,42 @@ serves the protected result once its payment proof is settled (VERIFIED: 11 HTTP
 full suite 130).
 L20 A spent payment proof is refused so one payment never serves the resource twice (VERIFIED:
 replayed payment-signature returns 402 with the resource absent).
+
+## Block 15 — MCP `paidTool` wrapper for the x402 exact-on-nano scheme (done this run)
+- Closed the last named roadmap-stage-1 deliverable. Stage 1 requires a `nano`
+  x402-compatible scheme with a self-hostable facilitator AND **an MCP `paidTool`
+  wrapper**. Blocks 10-14 built the spec + TS reference impl, the facilitator
+  (/supported /verify /settle, fail-closed >=2 independent RPCs, atomic single-use
+  claim), and the HTTP 402 Resource Server + wire client. But the MCP server
+  (server.py) still only exposed the old block-4 quote/verify style tools; nothing
+  let an MCP *client agent* bridge into the x402 402->pay->verify->settle->200 flow.
+- `nano_mcp/paidtool.py` (new): `PaidToolServer` — two MCP tools reusing the SAME
+  `ResourceApp` + `Facilitator` as the HTTP server (no protocol reimplementation):
+  - `paid_tool_request(tool)` -> issues a fresh one-time nano_ payTo + exact amount
+    + request_id via `ResourceApp.begin()`; stateless (payTo derived deterministically
+    from (master, request_id)); mirrors the HTTP 402.
+  - `paid_tool_execute(tool, request_id, payment_proof)` -> re-derives the exact
+    requirements for the request_id, builds the PaymentPayload, and runs
+    `ResourceApp.complete()` = verify (>=2 independent RPCs, fail-closed) THEN settle
+    (atomic single-use claim); on settlement success runs the protected tool and
+    returns its result; a spent/replayed proof is refused. The wrapper never moves,
+    holds or guards funds.
+  - `build_paid_server()` -> MCPServer exposing the two tools (mcp v2 API).
+- `tests/test_paidtool.py` (8 tests, in-process MCPServer via asyncio.run, stub
+  `RpcEndpoint` stores emitting the REAL Nano block_info shape): tools exposed; two
+  requests issue distinct one-time payTos; stateless-determinism (re-derive yields
+  same payTo); intent served only after verify+settle on two RPCs (L22); replay
+  refused exactly once (L21); fail-closed on 1-of-2 broken endpoint; wrong amount
+  and missing request_id refused. No funds move.
+- Laws minted: L21 (spent/replayed proof refused, one payment never serves twice),
+  L22 (issues one-time payTo, serves result only after verify+settle on two RPCs).
+  Full suite 138 passing (130 + 8 new).
+- HONEST GAP: L2 (a live funded on-chain SEND confirmed via rpc.nano.to) remains STUCK
+  as before — no funded wallet, AGENTS forbids seeking funds. Block 15 exercises the
+  whole x402 handshake over MCP against stub nodes with the real verifier; it does not
+  fake the funded leg.
+
+Laws: L21 The MCP paidTool wrapper refuses a spent or replayed payment proof, so one
+payment never serves a protected tool result twice.
+L22 The paidTool wrapper issues a one-time nano payTo then serves the result only
+after the proof is verified and settled on two RPCs.
