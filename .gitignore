@@ -7,3 +7,5 @@ __pycache__/
 .ledger/test-all.txt
 uv.lock
 tests/_tmp_published.json
+node_modules/
+dist/

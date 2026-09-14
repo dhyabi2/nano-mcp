@@ -238,3 +238,32 @@ facing and requires human approval before any PR can exist to verify against).
 
 Laws: L14 P1's x402 exact-on-nano spec is prepared and verified, ready to open only
 after human approval (VERIFIED: 8 spec-draft tests + consolidated full-suite run).
+
+## Block 11 — P1 PR-2 deliverable: x402 `exact`-on-`nano` reference implementation draft (done this run)
+- Filled the empty scaffold at `draft/x402/typescript/packages/mechanisms/nano/src/`:
+  - `types.ts` — nano:live network / XNO asset / 64-hex block-hash proof / RPC config.
+  - `crypto.ts` — nano_ address encoding (base32 nano alphabet + blake2b checksum),
+    HKDF-SHA256 one-time address derivation per requestId, and a pluggable
+    `SeedToPublicKey` boundary (default RFC 8032 via @noble/ed25519; the production
+    code uses Ed25519-Blake2b from the verified Python SDK — documented honestly).
+  - `rpc.ts` — minimal Nano JSON-RPC client + `verifyBlockOnIndependentEndpoints`
+    that FAILS CLOSED (>=2 endpoints, any endpoint error -> refused).
+  - `claim.ts` — atomic single-use `ClaimStore` + consumption key = block-hash + requestId.
+  - `exact/client/index.ts`, `exact/server/index.ts`, `exact/facilitator/index.ts` —
+    `ExactNanoScheme` implementing the core x402 @x402/core interfaces, mirroring
+    the real `@x402/stellar` mechanism layout (verified against published types).
+- 7 offline TS tree tests pass (`npm test`), `tsc --noEmit` clean against published
+  `@x402/core`, `tsup build` produces the exports the package.json declares.
+- Added `tests/test_x402_draft_refimpl.py` (9 pytest tests: structure, semantics,
+  subprocess typecheck + TS tests, pending.md framing). Full Python suite 95 passing.
+- Fixed a real latent bug surfaced under full-suite load: `store.py` used one shared
+  sqlite connection with check_same_thread=False where only claim() locked; the read
+  paths raced on the connection and could raise sqlite3.InterfaceError. Now all access
+  (incl. reads) serializes on `self._lock`; the L5 concurrency test passes 8/8 stress.
+- `tools/evidence_block11.py` emits the L0..L15 bundle for the ledger judge.
+- HONEST GAP: L2 (a live funded on-chain balance confirmed via rpc.nano.to) remains
+  STUCK as before — no funded wallet, AGENTS forbids seeking funds. Nothing in this
+  block fakes it. The PR-2 draft is not opened: per AGENTS public-actions it stays a
+  pending.md proposal awaiting human approval.
+
+Laws: L15 prepared and verified, ready to open only after human approval.

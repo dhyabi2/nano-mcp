@@ -46,7 +46,11 @@ class ApprovalStore:
         self._conn.commit()
 
     def _row(self, request_id: str) -> tuple | None:
-        with closing(self._conn.execute(
+        # A single shared sqlite connection is used with check_same_thread=False;
+        # every access (reads included) must serialize on the same lock as writes
+        # or concurrent verify/claim traffic races on the connection and raises
+        # sqlite3.InterfaceError.
+        with self._lock, closing(self._conn.execute(
             "SELECT tx_hash, status, paid_addr, amount_raw, approved_at FROM approvals WHERE request_id=?",
             (request_id,),
         )) as cur:
@@ -104,7 +108,8 @@ class ApprovalStore:
         self._conn.commit()
 
     def quote_expiry(self, request_id: str) -> float | None:
-        row = self._conn.execute(
-            "SELECT expires_at FROM quote_expiry WHERE request_id=?", (request_id,)
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT expires_at FROM quote_expiry WHERE request_id=?", (request_id,)
+            ).fetchone()
         return row[0] if row else None
