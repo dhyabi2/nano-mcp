@@ -32,6 +32,7 @@ from .httpx402 import (
     serve_resource,
 )
 from .oneshot import derive_one_time_account, hkdf_sha256, new_request_id
+from .paidtool import PaidToolServer, build_paid_server
 from .pricing import (
     DEFAULT_SOURCES,
     QUOTE_TTL_SECONDS,
@@ -62,6 +63,7 @@ __all__ = [
     "PAYMENT_RESPONSE_HEADER",
     "PAYMENT_SIGNATURE_HEADER",
     "PaymentService",
+    "PaidToolServer",
     "QUOTE_TTL_SECONDS",
     "Quote",
     "ResourceApp",
@@ -70,6 +72,7 @@ __all__ = [
     "append_nano_tx",
     "b64decode_json",
     "b64encode_json",
+    "build_paid_server",
     "build_payment_payload",
     "consumption_key",
     "count_external_receipts",

@@ -39,7 +39,7 @@ little-endian `blake2b-40(public_key)` checksum.
 
 ## Status
 
-Built and verified under the Law Ledger (`.ledger/`): blocks 2–7 done.
+Built and verified under the Law Ledger (`.ledger/`): blocks 2–15 done.
 
 - Block 2: SDK derive + live read (L0, L1).
 - Block 3: SDK send (sign + PoW + publish) with balance + 0.01 XNO/day cap guards (L3).
@@ -59,6 +59,18 @@ Built and verified under the Law Ledger (`.ledger/`): blocks 2–7 done.
   two independent RPC endpoints** (fails closed if any cannot confirm) and settles
   it with an atomic single-use claim, exactly once (L16, L17). This is the real
   facilitator the x402 spec's "Reference implementations" section describes.
+- Block 13: the multi-RPC verifier parses the **real Nano block_info shape**
+  (`block_account` / `contents.type` / `contents.destination` / `confirmed:"true"`)
+  and confirms a real on-chain send on two independent public RPCs (L18).
+- Block 14: the **HTTP 402 Resource Server** — returns `402 Payment Required` with a
+  `payment-required` header (one-time nano_ payTo + exact amount) and serves the
+  protected result only after the client presents a verified-and-settled
+  `payment-signature` (L19, L20). The missing HTTP half of the x402 protocol.
+- Block 15: the **MCP paidTool wrapper** (`nano_mcp/paidtool.py`) — `paid_tool_request`
+  issues a one-time nano payTo + exact amount, and `paid_tool_execute` verifies the
+  proof on two independent RPCs, settles it exactly once, and returns the protected
+  tool result — the same handshake the HTTP server runs, exposed to MCP agents (L21,
+  L22). Closes the last roadmap-stage-1 deliverable.
 
 L2 (a live funded on-chain send confirmed via rpc.nano.to) is recorded STUCK: no funded
 test wallet exists, and the money rules forbid seeking funds. Every real component is
