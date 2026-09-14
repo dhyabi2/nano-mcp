@@ -145,7 +145,82 @@
   },
   "4": {
    "status": "pending",
-   "attempts": []
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "No test evidence provided for seed derivation against official Nano examples. The supplied tests only cover block 4 (L4/L5). Missing: tests for seed->priv, priv->pub, pub->address encoding, and live account_key round-trip (e.g., in tests/test_sdk.py or similar)."
+      },
+      {
+       "id": "L1",
+       "pass": false,
+       "evidence": "No test evidence provided for a live account_balance call via rpc.nano.to. Missing: a test that posts account_balance to NANO_RPC_URL and asserts a numeric raw balance."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "No test evidence provided for an on-chain send block accepted via rpc.nano.to. Missing: test asserting a block hash appears in account_history after sending a self-transfer."
+      },
+      {
+       "id": "L3",
+       "pass": false,
+       "evidence": "No test evidence provided for cap/balance enforcement. Missing: unit tests calling send with amount > balance and above daily cap, both raising errors."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-61 asserts a != b for different request_ids; tests/test_payments.py:65-68 asserts a1 == a2 for the same id. Both pass in /tmp/block4_focus.txt (test_l4_distinct_addresses_for_different_request_ids PASSED, test_l4_same_request_id_reproduces_same_address PASSED)."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108 shows first verify returns approved, second returns spent; tests/test_payments.py:137-157 with 8 concurrent calls yields exactly 1 approved and 7 spent. Both pass in /tmp/block4_focus.txt (test_l5_approves_once_when_onchain_send_seen PASSED, test_l5_concurrent_claims_approve_exactly_once PASSED)."
+      }
+     ],
+     "at": "2026-09-14T00:47:12+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "test_crypto.py:44-46 'test_private_key_derivation_matches_official_vector' asserts derive_private_key(DOCS_SEED, index=1)==DOCS_PRIV (docs.nano.org the-basics vector); test_crypto.py:50-51 'test_public_key_derivation_matches_docs_keyexpand' asserts public_key(DOCS_PRIV_EXPAND)==DOCS_PUB_EXPAND; test_crypto.py:54-56 'test_address_matches_docs_keyexpand' asserts address_from_public_key(DOCS_PUB_EXPAND)==DOCS_ADDR_EXPAND; test_crypto.py:59-61 parametrized NODE_PAIRS asserts address_from_public_key matches rpc.nano.to account_key ground truth; test_client.py:38-47 'test_derived_account_agrees_with_node' does a live account_key round-trip with a derived SDK account. All passed in /tmp/all_tests.txt."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "test_client.py:22-28 'test_live_balance_read' posts account_balance to NANO_RPC_URL for a known public account (nano_1faucet...) and asserts raw balance is numeric and >0; test_client.py:31-34 'test_live_history_read' posts account_history and asserts at least one entry. Both passed in /tmp/all_tests.txt."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing live send test. There is no test that performs a send through rpc.nano.to and verifies the resulting block hash appears in account_history. The existing network tests (test_client.py, test_block.py::test_live_confirmed_block_hash_recomputed) only validate reads and recompute hashes of existing confirmed blocks; they do not process a new signed send block. Evidence needed: a test that signs and submits a real self-transfer via the nano_sdk, gets a block hash from the process response, and later checks the hash is present in account_history."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "test_wallet.py:56-63 'test_send_over_balance_raises_without_publishing' calls send with amount > balance and asserts InsufficientBalance is raised and no process call is made; test_wallet.py:66-77 'test_send_over_daily_cap_raises_without_publishing' fills the daily cap (0.01 XNO), attempts an additional send, asserts DailyCapExceeded raised and only the first send was published; test_wallet.py:80-90 'test_daily_cap_is_per_day_not_total_over_lifetime' verifies rolling-day resets. All passed in /tmp/all_tests.txt."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "test_payments.py:58-62 'test_l4_distinct_addresses_for_different_request_ids' asserts addresses for two request_ids differ; test_payments.py:65-67 'test_l4_same_request_id_reproduces_same_address' asserts repeating an id yields the same address; test_server.py:52-73 'test_mcp_quote_distinct_and_stable' verifies via the MCP server tool that distinct request_ids give distinct addresses and fixed request_id is stable. All passed in /tmp/all_tests.txt."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "test_payments.py:93-107 'test_l5_approves_once_when_onchain_send_seen' stubs an on-chain receive entry, calls verify_payment twice: first returns 'approved' with tx_hash, second returns 'spent' and store is_approved is true; test_payments.py:84-91 'test_l5_pending_before_payment' checks pending when no payment seen; test_payments.py:111-117 'test_l5_not_approved_for_underpayment_or_other_address' ensures underpayment returns pending; test_payments.py:120-134 'test_l5_store_persists_across_service_instances' verifies exactly-once across restarts; test_payments.py:137-157 'test_l5_concurrent_claims_approve_exactly_once' proves only one approval among 8 concurrent claims; test_server.py:76-91 'test_mcp_verify_approves_once' verifies through the MCP server tool. All passed in /tmp/all_tests.txt."
+      }
+     ],
+     "at": "2026-09-14T00:48:14+00:00"
+    }
+   ]
   },
   "5": {
    "status": "pending",
@@ -162,6 +237,11 @@
    "block": 3,
    "text": "L2.verify_status: unverified → STUCK (no funded wallet; funds-broadcast+confirm not runnable this session; sign/PoW/publish path built and hash+signature proven vs live chain via block_info ground truth)",
    "at": "2026-09-14T00:20:15+00:00"
+  },
+  {
+   "block": 4,
+   "text": "L2.verify_status: unverified → STUCK (persists from block 3: no funded wallet, AGENTS forbids seeking funds, so live funds-broadcast+confirm cannot run). Block 4's own laws L4 (distinct+reproducible one-time address) and L5 (verify approve-once, replay-safe) verified PASS; L0,L1,L3 also PASS. Live-funded confirmation leg remains recorded-not-faked.",
+   "at": "2026-09-14T00:49:12+00:00"
   }
  ],
  "probe": null

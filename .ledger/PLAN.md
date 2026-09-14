@@ -52,17 +52,35 @@ Laws: L3.1 a signed send block is accepted and confirms on-chain via rpc.nano.to
 L3.2 the SDK refuses to send more than the wallet holds / more than the daily
 0.01 XNO cap (VERIFIED by unit tests).
 
-## Block 4 — MCP server (pay-per-call tools)
-- `nano_mcp/` FastMCP stdio server. Tools: `get_address`, `get_balance`, `get_history`,
-  `quote(tool, args) -> {price_raw, addr, request_id}`, `pay_and_call(...)` (agent side: send then
-  call), and service side `verify_payment(request_id)` (derives the same one-time address from the
-  server master key, polls account_history, returns approved once the matching send arrives).
-- One-time address derivation: HKDF-SHA256(server_master_secret, request_id) -> Nano keypair.
-- Tests: in-process MCP client drives tools; keypair-for-request_id is deterministic and unique.
+## Block 4 — MCP server (pay-per-call tools) — done this session
+- `nano_mcp/` package (new, mcp v2 where FastMCP -> MCPServer). Tools on an in-process
+  stdio MCPServer: `get_address`, `get_balance`, `get_history`, `quote(price_nano,
+  request_id?) -> {request_id, address, price_raw, price_nano}`, `pay_and_call(...)`
+  (agent side: returns the one-time target + instructions), and service side
+  `verify_payment(request_id, amount_raw)` which derives the same one-time address
+  from the server master key, polls on-chain account_history, and returns approved
+  once the matching send is confirmed — exactly once.
+- One-time address derivation: HKDF-SHA256(server_master_secret, request_id) -> 32B
+  Ed25519 private key -> nano_ address (`nano_mcp/oneshot.py`), deterministic per
+  request_id, distinct across ids (L4).
+- Exactly-once approval: SQLite-backed `INSERT ... PRIMARY KEY` claim in
+  `nano_mcp/store.py` (brainstorm-converged), so one payment authorizes one call,
+  replay-safe across restarts and concurrent calls (L5).
+- Tests: `tests/test_payments.py` (L4 distinct+reproducible / L5 approve-once,
+  persist, concurrency) + `tests/test_server.py` (drives the real MCPServer tools
+  in-process via asyncio). 34 offline + 5 live pass (39 total).
+- HONEST GAP: the *live-funded* on-chain confirmation of a real external payment
+  (the chain fully moving XNO into a service address and being confirmed) reuses the
+  same no-funded-wallet constraint as L2/L3 — it stays STUCK pending a funded test
+  wallet. The verify machinery (account_history lookup + exactly-once claim) is
+  proven against a stub client standing in for rpc.nano.to, consistent with the
+  SDK's wallet-guard tests; the live-funded leg is recorded, not faked.
 
-Laws: L4.1 the server derives a distinct, reproducible one-time address per request_id.
-L4.2 `verify_payment(request_id)` approves a call only after the on-chain send to that address is
-seen, and never twice for one request_id.
+Laws: L4.1 the server derives a distinct, reproducible one-time address per
+request_id (VERIFIED by unit + in-process MCP tests).
+L4.2 `verify_payment(request_id)` approves a call only after the on-chain send to
+that address is seen, and never twice for one request_id (VERIFIED by unit +
+in-process MCP tests with a stub history client).
 
 ## Block 5 — end-to-end probe + evidence
 - One agent (SDK) pays the service (MCP) and gets the gated tool result; run `ledger probe`.
