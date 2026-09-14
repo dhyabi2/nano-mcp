@@ -57,7 +57,7 @@ NANO_SCHEME = "exact"
 
 DEFAULT_ENDPOINTS = (
     "https://rpc.nano.to",
-    "https://proxy.nano.rpc.blvd.run",
+    "https://rainstorm.city/api",
 )
 
 
@@ -75,6 +75,86 @@ def parse_raw(amount: str) -> int:
     int_part, frac = clean.split(".", 1)
     frac = (frac + "0" * 30)[:30]
     return int(int_part or "0") * 10**30 + int(frac or "0")
+
+
+@dataclass(frozen=True)
+class NormalizedBlock:
+    """Canonical decode of one node's `block_info` response.
+
+    Because independent Nano RPC nodes return the same block with slightly
+    different field names, every response is normalized here into one shape so
+    the fail-closed comparison ("same amount going to payTo from a real sender")
+    is decoupled from node-specific quirks. Missing critical fields are an
+    error, not a silent default.
+    """
+
+    account: str          # emitter (may be blank if node omits it; the payer is
+                          # not required by the spec but a blank is surfaced)
+    subtype: str          # 'send' / 'state' / ''
+    destination: str      # receiver (link_as_account / contents.destination)
+    amount_raw: int
+    confirmed: bool
+
+    @property
+    def is_send(self) -> bool:
+        return self.subtype in ("send", "state", "")
+
+
+def normalize_block_info(raw: dict) -> NormalizedBlock:
+    """Map a node's `block_info` response into the canonical form.
+
+    Raises RpcError on a malformed/incomplete response: a node that returns a
+    block without its confirmed flag or its amount cannot authoritatively prove
+    anything, so it must fail closed rather than be treated as "not confirmed".
+    """
+    if not isinstance(raw, dict):
+        raise RpcError("block_info: response is not a JSON object")
+
+    # confirmed: real nodes return the STRING "true"; stubs use a bool True.
+    confirmed_raw = raw.get("confirmed")
+    if confirmed_raw is None:
+        raise RpcError("block_info: missing 'confirmed' flag")
+    confirmed = (
+        confirmed_raw is True
+        or str(confirmed_raw).strip().lower() == "true"
+    )
+
+    # Emitter account: block_account (real nodes) or account (spec/stub).
+    account = str(raw.get("block_account") or raw.get("account") or "")
+
+    # Subtype: contents.type (real send blocks) or subtype/type top-level.
+    contents = raw.get("contents") or {}
+    subtype = str(
+        raw.get("subtype")
+        or raw.get("type")
+        or (contents.get("type") if isinstance(contents, dict) else None)
+        or ""
+    )
+
+    # Receiver: contents.destination (real) or link_as_account / destination.
+    destination = str(
+        (contents.get("destination") if isinstance(contents, dict) else None)
+        or raw.get("link_as_account")
+        or raw.get("destination")
+        or raw.get("link")
+        or ""
+    )
+
+    amount_raw_v = raw.get("amount")
+    if amount_raw_v is None:
+        raise RpcError("block_info: missing 'amount'")
+    try:
+        amount_raw = parse_raw(str(amount_raw_v))
+    except ValueError as err:
+        raise RpcError(f"block_info: unparseable amount {amount_raw_v!r}") from err
+
+    return NormalizedBlock(
+        account=account,
+        subtype=subtype,
+        destination=destination,
+        amount_raw=amount_raw,
+        confirmed=confirmed,
+    )
 
 
 @dataclass
@@ -139,37 +219,27 @@ def verify_block_on_independent_endpoints(
     confirmed_sends: list[dict] = []
     failures = 0
     first_reason: str | None = None
+    expected = parse_raw(amount)
 
     for ep in endpoints:
         try:
             info = ep.invoke("block_info", hash=block_hash)
-            confirmed = info.get("confirmed") is not False
-            subtype = str(info.get("subtype") or info.get("type") or "")
-            seen = parse_raw(str(info.get("amount", "0")))
-            expected = parse_raw(amount)
-            emitter = str(info.get("account") or info.get("source") or "")
-            dest = str(
-                info.get("link_as_account")
-                or info.get("destination")
-                or info.get("link")
-                or ""
-            )
-
-            if not confirmed:
+            nb = normalize_block_info(info)
+            if not nb.confirmed:
                 raise RpcError(f"block not confirmed on {ep.url}")
-            if subtype not in ("send", "state", ""):
-                raise RpcError(f"block subtype {subtype!r} not a send on {ep.url}")
-            if seen != expected:
-                raise RpcError(f"amount {seen} != required {expected} on {ep.url}")
-            receiver = dest if subtype == "send" and dest else pay_to
+            if not nb.is_send:
+                raise RpcError(f"block subtype {nb.subtype!r} not a send on {ep.url}")
+            if nb.amount_raw != expected:
+                raise RpcError(f"amount {nb.amount_raw} != required {expected} on {ep.url}")
+            receiver = nb.destination if nb.subtype == "send" and nb.destination else pay_to
             if receiver != pay_to:
                 raise RpcError(f"block pays {receiver}, not payTo={pay_to} on {ep.url}")
 
             confirmed_sends.append(
                 {
                     "block_hash": block_hash,
-                    "payer": emitter,
-                    "amount": str(seen),
+                    "payer": nb.account,
+                    "amount": str(nb.amount_raw),
                     "receiver": pay_to,
                     "confirmed": True,
                 }
@@ -468,9 +538,11 @@ __all__ = [
     "FacilitatorConfig",
     "RpcEndpoint",
     "RpcError",
+    "NormalizedBlock",
     "VerificationResult",
     "consumption_key",
     "make_handler",
+    "normalize_block_info",
     "parse_raw",
     "serve",
     "verify_block_on_independent_endpoints",

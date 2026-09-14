@@ -129,6 +129,13 @@
    "statement": "Settle re-verifies on-chain then binds a proof to its request with an atomic single-use claim, so one proof settles exactly once.",
    "test": "tests/test_facilitator.py: test_l17_settle_re_verifies_then_claims_atomically; test_l17_settle_never_trusts_prior_verify; test_l17_claim_store_persists_exactly_once_across_instances; test_l17_concurrent_settles_approve_exactly_once; test_l17_http_post_settle_exactly_once",
    "minted": "2026-09-14T08:11:34+00:00"
+  },
+  {
+   "id": "L18",
+   "block": 13,
+   "statement": "The multi-RPC verifier parses the real Nano block_info shape and confirms a real on-chain send on two independent public endpoints.",
+   "test": "verify_block_on_independent_endpoints confirms a real confirmed Nano send block on two independent public RPCs with a non-empty payer; an incomplete/malformed node response is refused, not passed.",
+   "minted": "2026-09-14T08:54:07+00:00"
   }
  ],
  "blocks": {
@@ -2263,6 +2270,516 @@
   "12": {
    "status": "pending",
    "attempts": []
+  },
+  "13": {
+   "status": "stuck",
+   "attempts": [
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": false,
+       "evidence": "Missing evidence: no test or command output provided that verifies seed->address derivation against official Nano examples. The supplied evidence covers only block 13 (L18)."
+      },
+      {
+       "id": "L1",
+       "pass": false,
+       "evidence": "Missing evidence: no test or command output provided that posts account_balance to NANO_RPC_URL and asserts numeric raw balance. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence: no test or command output provided that sends a self-transfer and asserts block hash appears in account_history. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L3",
+       "pass": false,
+       "evidence": "Missing evidence: no unit test shown that calls send with amount > balance or breaching daily cap and asserts exceptions. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L4",
+       "pass": false,
+       "evidence": "Missing evidence: no test shown that derives two distinct addresses for different request_ids and same address for repeated id. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L5",
+       "pass": false,
+       "evidence": "Missing evidence: no test shown that drives a send to a derived address then verify_payment returns approved once and spent on second call. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L6",
+       "pass": false,
+       "evidence": "Missing evidence: no end-to-end probe test or command output demonstrating pay-per-call success and replay safety. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L7",
+       "pass": false,
+       "evidence": "Missing evidence: no journal gate test or command output showing nano_tx rows for external payer and zero for own accounts. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L8",
+       "pass": false,
+       "evidence": "Missing evidence: no pricing function test with injected rates or live network test fetching three sources. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L9",
+       "pass": false,
+       "evidence": "Missing evidence: no test showing quote expiry <=30s or expired status handling. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L10",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_buyer.py output or content proving mandate authorization and rejection of tampered/expired/mis-bound mandates. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L11",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_buyer.py output or content proving session/daily/balance guards before broadcast. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L12",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_scorecard.py output or content proving reproducible scorecard build and verify. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L13",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_scorecard.py output or content proving share counts only external receipts and own traffic excluded. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L14",
+       "pass": false,
+       "evidence": "Missing evidence: no test output or content for tests/test_x402_draft.py or spec sections. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L15",
+       "pass": false,
+       "evidence": "Missing evidence: no test output or content for tests/test_x402_draft_refimpl.py or TS type-check. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L16",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_facilitator.py output or content proving /supported, /verify, /settle behavior and fail-closed two-endpoint verification. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L17",
+       "pass": false,
+       "evidence": "Missing evidence: no tests/test_facilitator.py output or content proving settle re-verifies, atomic single-use claim, exactly-once. Supplied evidence covers only L18."
+      },
+      {
+       "id": "L18",
+       "pass": true,
+       "evidence": "Evidence file /tmp/ev13.txt contains: '- def test_live_confirms_real_send_on_two_independent_public_rpcs():', '- assert res.confirmed_on == 2', '- assert send[\"payer\"] == REAL_PAYER', '- assert send[\"receiver\"] == REAL_PAYTO', '- assert send[\"amount\"] == REAL_AMOUNT', and test names for normalize_block_info parsing real block shape and rejecting incomplete responses. Fresh pytest tail: '8 passed in 1.44s'. The facilitator source (nano_mcp/facilitator.py) implements normalize_block_info (lines 103-157) and verify_block_on_independent_endpoints (lines 201-256) failing closed on missing confirmed/amount. This proves the test for L18."
+      }
+     ],
+     "at": "2026-09-14T09:02:20+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:44-56: test_private_key_derivation_matches_official_vector asserts priv.hex().upper() == DOCS_PRIV; test_public_key_derivation_matches_docs_keyexpand asserts public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND and address_from_public_key(...) == DOCS_ADDR_EXPAND. Fresh pytest: test_crypto.py::test_private_key_derivation_matches_official_vector PASSED, test_public_key_derivation_matches_docs_keyexpand PASSED, test_address_matches_docs_keyexpand PASSED, test_address_encoding_matches_node[...] PASSED (3 vectors)."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:23-27: test_live_balance_read asserts raw.isdigit() and int(raw) > 0; test_live_history_read at test_client.py:32. Fresh pytest: tests/test_client.py::test_live_balance_read PASSED, test_live_history_read PASSED."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing: no test named for L2 in the evidence. The consolidated evidence file has no L2 section, and the fresh pytest output shows no test that sends a tiny self-transfer and asserts a block hash later present in account_history. The closest are test_wallet.py::test_send_within_balance_and_cap_publishes (asserts process_result hash) and test_block.py::test_live_confirmed_block_hash_recomputed, but neither asserts the hash is later present in account_history. L2 requires that specific on-chain confirmation assertion."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:56-63: test_send_over_balance_raises_without_publishing asserts no process call and _sent_today()==0; test_wallet.py:66-77: test_send_over_daily_cap_raises_without_publishing asserts available_today()==0 and only one process call (the allowed one). Fresh pytest: test_send_over_balance_raises_without_publishing PASSED, test_send_over_daily_cap_raises_without_publishing PASSED."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:58-68: test_l4_distinct_addresses_for_different_request_ids asserts a != b and both start with nano_; test_l4_same_request_id_reproduces_same_address asserts a1 == a2. Fresh pytest: both PASSED."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:93-108: test_l5_approves_once_when_onchain_send_seen asserts res['status']=='approved', res['tx_hash']==txh, then res2['status']=='spent' and store.is_approved(rid); test_l5_concurrent_claims_approve_exactly_once at line 137. Fresh pytest: both PASSED."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66-81: test_end_to_end_pay_per_call_succeeds_and_is_replay_safe asserts addr in qtext. Fresh pytest: test_end_to_end_pay_per_call_succeeds_and_is_replay_safe PASSED. The test name and the probe scenario cover one agent paying one service and re-calling with the same request_id observing no double execution."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:43-58: test_append_logs_external_once asserts _count_tx(db)==1, row[2]=='nano_tx', data['external'] is True; test_evidence.py:62-72: test_append_never_logs_own_account asserts ok is False and _count_tx(db)==0. Fresh pytest: both PASSED."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:40-42: median([0.30,0.34,0.35])==0.34; test_pricing.py:97-111: test_quote_usd_returns_exact_median_amount_and_no_money_moves asserts q.price_raw == usd_to_xno_raw(Decimal('1.00'), Decimal('0.34')); test_pricing.py:214-226: test_live_median_of_three_sources_returns_numeric asserts len(rates)==3, r>0, min<=m<=max, 0.005<m<100. Fresh pytest: all three PASSED. The quote path is pure computation (test_quote_usd_is_pure_computation_no_chain_contact PASSED)."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:163-176: test_quote_expires_in_30_seconds_or_less asserts q.expires_at - 5000.0 <= QUOTE_TTL_SECONDS and <= 30.0, and q.expired(now=q.expires_at+0.001); test_pricing.py:179-193: test_verify_refuses_expired_quote__does_not_approve asserts out['status']=='expired'. Fresh pytest: both PASSED."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:90-97: test_l10_valid_mandate_authorizes_send asserts verify_mandate(...) is None, h == process_result['hash'], len(process_calls())==1; test_buyer.py:101-107: test_l10_tampered_signature_refused_before_broadcast asserts process_calls()==[]. Fresh pytest also shows test_l10_wrong_owner_public_key_refused, test_l10_expired_mandate_refused, test_l10_misbound_mandate_refused all PASSED."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:139-145: test_l11_over_session_cap_refused asserts process_calls()==[]; test_buyer.py:148-155: test_l11_over_daily_cap_refused asserts process_calls()==[]; test_buyer.py:158-165: test_l11_over_balance_refused asserts isinstance(ei.value, (InsufficientBalance, SessionCapExceeded)) and process_calls()==[]; test_buyer.py:172-173: test_l11_up_to_session_cap_allowed_and_recorded asserts available_session()==0 and len(process_calls())==1. Fresh pytest: all four PASSED."
+      },
+      {
+       "id": "L12",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py:62-72: test_l12_share_counts_only_external_receipts asserts published['nano']['share_of_observed'] == approx(expected_share); test_scorecard.py:75-82: test_l12_own_traffic_adds_exactly_zero_to_share asserts external_receipts==0 and share==0.0 for all-own and empty. Fresh pytest: both PASSED, plus test_count_external_receipts_uses_evidence_gate_semantics PASSED."
+      },
+      {
+       "id": "L13",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py:106-112: test_l13_verify_passes_on_published_raw_data asserts ok and problems==[]; test_scorecard.py:115-122: test_l13_verify_detects_figure_drift asserts ok is False and 'nano.fee' in problems; test_cli_build_and_verify_is_reproducible PASSED in fresh pytest (subprocess build then verify exit 0 with 'verify PASS')."
+      },
+      {
+       "id": "L14",
+       "pass": true,
+       "evidence": "tests/test_x402_draft.py:51-52: test_spec_file_exists_at_x402_path asserts SPEC.is_file(); test_spec_has_all_required_sections at line 55; test_spec_encodes_strategy_law_l1_two_independent_rpcs at line 87 asserts 'at least two independent' and 'RPC endpoints'; test_spec_encodes_single_use_claim at line 94 asserts 'claim' and 'exactly once'; test_no_upstream_pr_opened_by_default at line 108. Fresh pytest: all 8 test_x402_draft.py tests PASSED; full suite 119 passed."
+      },
+      {
+       "id": "L15",
+       "pass": true,
+       "evidence": "Fresh pytest: tests/test_x402_draft_refimpl.py::test_refimpl_package_exists_at_x402_path PASSED, test_refimpl_implements_the_three_core_interfaces PASSED, test_refimpl_encodes_network_asset_and_64hex_proof PASSED, test_refimpl_fail_closed_two_independent_rpcs PASSED, test_refimpl_atomic_single_use_claim PASSED, test_refimpl_typechecks_against_published_x402_core PASSED, test_refimpl_own_ts_tests_pass PASSED, test_pending_frames_refimpl_and_opens_no_pr PASSED. The earlier grep misses were due to different test names; the fresh pytest output proves the required tests exist and pass."
+      },
+      {
+       "id": "L16",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py:125-140: test_l16_facilitator_exposes_supported_verify_settle asserts scheme=='exact', network=='nano:live', asset=='XNO', callable(verify) and callable(settle), res['isValid'] is True, confirmedOn==2; test_l16_verify_confirms_on_two_independent_endpoints at line 134; test_l16_fail_closed_when_any_endpoint_errors at line 143; test_l16_refuses_less_than_two_endpoints at line 155 asserts 'fail-closed' in invalidMessage. Fresh pytest: all six L16 tests PASSED including HTTP GET/POST."
+      },
+      {
+       "id": "L17",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py:212-224: test_l17_settle_re_verifies_then_claims_atomically asserts s2['errorReason']=='duplicate'; test_l17_settle_never_trusts_prior_verify at line 229; test_l17_claim_store_persists_exactly_once_across_instances at line 257 asserts c2.is_claimed(key) is True; test_l17_concurrent_settles_approve_exactly_once at line 268 asserts results.count(True)==1. Fresh pytest: all five L17 tests PASSED including HTTP POST."
+      },
+      {
+       "id": "L18",
+       "pass": true,
+       "evidence": "tests/test_facilitator_live.py:33: test_normalize_parses_real_nano_block_info_shape PASSED; test_incomplete_node_response_is_refused_not_passed at line 91 PASSED; test_live_confirms_real_send_on_two_independent_public_rpcs at line 135 PASSED. The git diff shows normalize_block_info raises RpcError on missing confirmed/amount and the verifier requires confirmed, send subtype, exact amount, and pay_to match. Fresh pytest confirms all three live tests PASSED."
+      }
+     ],
+     "at": "2026-09-14T09:05:11+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py::test_private_key_derivation_matches_official_vector PASSED; test_crypto.py:46 assert priv.hex().upper() == DOCS_PRIV; test_crypto.py:51 assert public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND; test_crypto.py:56 assert address_from_public_key(...) == DOCS_ADDR_EXPAND; also tests/test_crypto.py::test_address_encoding_matches_node (3 vectors) PASSED and tests/test_client.py::test_derived_account_agrees_with_node PASSED"
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py::test_live_balance_read PASSED; test_client.py:23 def test_live_balance_read(client); test_client.py:26 assert raw.isdigit(); test_client.py:27 assert int(raw) > 0; also tests/test_client.py::test_live_history_read PASSED"
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence: no test found that sends a tiny self-transfer via rpc.nano.to and asserts the returned block hash later appears in account_history. tests/test_block.py::test_send_block_constructs_and_signature_is_valid and test_live_confirmed_block_hash_recomputed do not cover acceptance/confirmation through rpc.nano.to. Need a nano_sdk test performing the self-transfer and asserting account_history inclusion."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py::test_send_over_balance_raises_without_publishing PASSED; test_wallet.py:62 assert not [c for c in client.calls if c['action'] == 'process']; test_wallet.py:63 assert w._sent_today() == 0; tests/test_wallet.py::test_send_over_daily_cap_raises_without_publishing PASSED; test_wallet.py:72 assert w.available_today() == 0; test_wallet.py:77 assert len([c for c in client.calls if c['action'] == 'process']) == 1 (only the allowed cap-filling send is recorded)"
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py::test_l4_distinct_addresses_for_different_request_ids PASSED; test_payments.py:61 assert a != b; test_payments.py:62 assert a.startswith('nano_') and b.startswith('nano_'); tests/test_payments.py::test_l4_same_request_id_reproduces_same_address PASSED; test_payments.py:68 assert a1 == a2"
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py::test_l5_approves_once_when_onchain_send_seen PASSED; test_payments.py:102 assert res['status'] == 'approved'; test_payments.py:103 assert res['tx_hash'] == txh; test_payments.py:107 assert res2['status'] == 'spent'; test_payments.py:108 assert svc.store.is_approved(rid); also test_l5_concurrent_claims_approve_exactly_once PASSED"
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py::test_end_to_end_pay_per_call_succeeds_and_is_replay_safe PASSED; test_probe.py:66 def test_end_to_end_pay_per_call_succeeds_and_is_replay_safe(tmp_path); test_probe.py:81 assert addr in qtext; the test name explicitly covers pay-per-call success and replay safety"
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py::test_append_logs_external_once PASSED; test_evidence.py:53 assert _count_tx(db) == 1; test_evidence.py:55 assert row[2] == 'nano_tx'; test_evidence.py:57 assert data['external'] is True; tests/test_evidence.py::test_append_never_logs_own_account PASSED; test_evidence.py:71 assert ok is False; test_evidence.py:72 assert _count_tx(db) == 0"
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py::test_quote_usd_returns_exact_median_amount_and_no_money_moves PASSED; test_pricing.py:110 assert q.rate_xno_usd == '0.34'; test_pricing.py:111 assert q.price_raw == usd_to_xno_raw(Decimal('1.00'), Decimal('0.34')); tests/test_pricing.py::test_live_median_of_three_sources_returns_numeric PASSED; test_pricing.py:220 assert len(rates) == 3; test_pricing.py:222 assert r > 0; test_pricing.py:224 assert min(rates) <= m <= max(rates); also test_quote_usd_is_pure_computation_no_chain_contact PASSED"
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py::test_quote_expires_in_30_seconds_or_less PASSED; test_pricing.py:173 assert q.expires_at is not None; test_pricing.py:174 assert q.expires_at - 5000.0 <= 30.0; tests/test_pricing.py::test_verify_refuses_expired_quote__does_not_approve PASSED; test_pricing.py:193 assert out['status'] == 'expired'"
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py::test_l10_valid_mandate_authorizes_send PASSED; test_buyer.py:93 assert verify_mandate(...) is None; test_buyer.py:96 assert len(wallet.client.process_calls()) == 1; tests/test_buyer.py::test_l10_tampered_signature_refused_before_broadcast PASSED with test_buyer.py:107 assert client.process_calls() == []; full suite also shows test_l10_wrong_owner_public_key_refused, test_l10_expired_mandate_refused, test_l10_misbound_mandate_refused all PASSED"
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py::test_l11_over_session_cap_refused PASSED; test_buyer.py:145 assert client.process_calls() == []; test_l11_over_daily_cap_refused PASSED; test_buyer.py:155 assert client.process_calls() == []; test_l11_over_balance_refused PASSED; test_buyer.py:164 assert isinstance(ei.value, (InsufficientBalance, SessionCapExceeded)); test_buyer.py:165 assert client.process_calls() == []; test_l11_up_to_session_cap_allowed_and_recorded PASSED; test_buyer.py:173 assert len(client.process_calls()) == 1"
+      },
+      {
+       "id": "L12",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py::test_l12_share_counts_only_external_receipts PASSED; test_scorecard.py:72 assert published['nano']['share_of_observed'] == pytest.approx(expected_share); tests/test_scorecard.py::test_l12_own_traffic_adds_exactly_zero_to_share PASSED; test_scorecard.py:81 assert p_own['nano']['external_receipts'] == 0; test_scorecard.py:82 assert p_own['nano']['share_of_observed'] == p_empty['nano']['share_of_observed'] == 0.0"
+      },
+      {
+       "id": "L13",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py::test_l13_verify_passes_on_published_raw_data PASSED; test_scorecard.py:111 assert ok, problems; test_scorecard.py:112 assert problems == []; test_l13_verify_detects_figure_drift PASSED; test_scorecard.py:121 assert ok is False; test_scorecard.py:122 assert any('nano.fee' in p for p in problems); also tests/test_scorecard.py::test_cli_build_and_verify_is_reproducible PASSED via subprocess"
+      },
+      {
+       "id": "L14",
+       "pass": true,
+       "evidence": "tests/test_x402_draft.py::test_spec_file_exists_at_x402_path PASSED; test_x402_draft.py:52 assert SPEC.is_file(); test_spec_has_all_required_sections PASSED; test_spec_encodes_strategy_law_l1_two_independent_rpcs PASSED; test_x402_draft.py:90 assert 'at least two independent' in flat and 'RPC endpoints' in flat; test_spec_encodes_single_use_claim PASSED; test_x402_draft.py:96 assert 'claim' in text.lower() and 'exactly once' in text.lower(); test_no_upstream_pr_opened_by_default PASSED; full suite 119 passed"
+      },
+      {
+       "id": "L15",
+       "pass": true,
+       "evidence": "Full pytest output shows all test_x402_draft_refimpl.py tests PASSED: test_refimpl_package_exists_at_x402_path, test_refimpl_package_metadata_marks_ai_agent_draft_unsubmitted, test_refimpl_implements_the_three_core_interfaces, test_refimpl_encodes_network_asset_and_64hex_proof, test_refimpl_fail_closed_two_independent_rpcs, test_refimpl_atomic_single_use_claim, test_refimpl_typechecks_against_published_x402_core, test_refimpl_own_ts_tests_pass, test_pending_frames_refimpl_and_opens_no_pr (the ev13 file's 'not found' notes refer to wrong function names; the actual names above are present and passing)"
+      },
+      {
+       "id": "L16",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py::test_l16_facilitator_exposes_supported_verify_settle PASSED; test_facilitator.py:127-131 assert supported scheme/network/asset and callable verify/settle; test_l16_verify_confirms_on_two_independent_endpoints PASSED; test_facilitator.py:139 assert res['extra']['confirmedOn'] == 2; test_l16_fail_closed_when_any_endpoint_errors PASSED; test_l16_refuses_less_than_two_endpoints PASSED; test_facilitator.py:162 assert 'fail-closed' in res['invalidMessage']; also HTTP GET/POST tests PASSED"
+      },
+      {
+       "id": "L17",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py::test_l17_settle_re_verifies_then_claims_atomically PASSED; test_facilitator.py:224 assert s2['errorReason'] == 'duplicate'; test_l17_settle_never_trusts_prior_verify PASSED; test_l17_claim_store_persists_exactly_once_across_instances PASSED; test_facilitator.py:264 assert c2.is_claimed(key) is True; test_l17_concurrent_settles_approve_exactly_once PASSED; test_facilitator.py:282 assert results.count(True) == 1; test_l17_http_post_settle_exactly_once PASSED"
+      },
+      {
+       "id": "L18",
+       "pass": true,
+       "evidence": "tests/test_facilitator_live.py::test_normalize_parses_real_nano_block_info_shape PASSED; test_incomplete_node_response_is_refused_not_passed PASSED (test_facilitator_live.py:91); test_live_confirms_real_send_on_two_independent_public_rpcs PASSED (test_facilitator_live.py:135); full suite confirms these tests pass"
+      }
+     ],
+     "at": "2026-09-14T09:12:26+00:00"
+    },
+    {
+     "kind": "verify",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "tests/test_crypto.py:46 assert priv.hex().upper() == DOCS_PRIV; :51 assert public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND; :56 assert address_from_public_key(...) == DOCS_ADDR_EXPAND; fresh pytest PASSED tests/test_crypto.py::test_address_encoding_matches_node[...] and tests/test_client.py::test_derived_account_agrees_with_node."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "tests/test_client.py:26 assert raw.isdigit(); :27 assert int(raw) > 0; test_live_history_read defined at :32; fresh pytest 'tests/test_client.py::test_live_balance_read PASSED' and 'tests/test_client.py::test_live_history_read PASSED'."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence: no test is quoted that sends a signed block via rpc.nano.to, returns a process hash, and confirms it later in account_history. The closest tests, test_send_block_constructs_and_signature_is_valid and test_live_confirmed_block_hash_recomputed, only construct/sign/recompute a hash and do not prove live acceptance+history presence."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "tests/test_wallet.py:62 assert not [c for c in client.calls if c[\"action\"] == \"process\"]; :63 assert w._sent_today() == 0; :72 assert w.available_today() == 0; :77 assert len([c for c in client.calls if c[\"action\"] == \"process\"]) == 1; fresh pytest PASSED test_send_over_balance_raises_without_publishing and test_send_over_daily_cap_raises_without_publishing."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "tests/test_payments.py:61 assert a != b; :62 assert a.startswith(\"nano_\") and b.startswith(\"nano_\"); :68 assert a1 == a2; :75 assert len(addr)==65; fresh pytest PASSED test_l4_distinct_addresses_for_different_request_ids and test_l4_same_request_id_reproduces_same_address."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "tests/test_payments.py:102 assert res[\"status\"] == \"approved\"; :103 assert res[\"tx_hash\"] == txh; :107 assert res2[\"status\"] == \"spent\"; :108 assert svc.store.is_approved(rid); fresh pytest also PASSED test_l5_concurrent_claims_approve_exactly_once."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py:66 def test_end_to_end_pay_per_call_succeeds_and_is_replay_safe(tmp_path):; :81 assert addr in qtext; fresh pytest 'tests/test_probe.py::test_end_to_end_pay_per_call_succeeds_and_is_replay_safe PASSED [69%]' proves the named replay-safety test passes."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "tests/test_evidence.py:53 assert _count_tx(db) == 1; :55 assert row[2] == \"nano_tx\"; :57 assert data[\"external\"] is True; :58 assert data[\"direction\"] == \"receive\"; :71 assert ok is False; :72 assert _count_tx(db) == 0; fresh pytest PASSED test_append_logs_external_once and test_append_never_logs_own_account."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:41 assert median([Decimal(\"0.30\"), Decimal(\"0.34\"), Decimal(\"0.35\")]) == Decimal(\"0.34\"); :55 assert fetch_median_xno_usd(...) == Decimal(\"0.325\"); :111 assert q.price_raw == usd_to_xno_raw(Decimal(\"1.00\"), Decimal(\"0.34\")); :222 assert r > 0; fresh pytest PASSED test_exact_xno_amount_uses_fixed_rate_offline, test_quote_usd_is_pure_computation_no_chain_contact, and test_live_median_of_three_sources_returns_numeric."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "tests/test_pricing.py:173 assert q.expires_at - 5000.0 <= QUOTE_TTL_SECONDS; :174 assert q.expires_at - 5000.0 <= 30.0; :176 assert q.expired(now=q.expires_at + 0.001); :193 assert out[\"status\"] == \"expired\"; fresh pytest PASSED test_quote_expires_in_30_seconds_or_less and test_verify_refuses_expired_quote__does_not_approve."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:93 assert verify_mandate(wallet.mandate, OWNER_PUB, now=time.time()) is None; :96 assert len(wallet.client.process_calls()) == 1; :107 assert client.process_calls() == []; fresh pytest PASSED valid, tampered, wrong-owner, expired, and misbound mandate tests."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "tests/test_buyer.py:145 assert client.process_calls() == []; :155 assert client.process_calls() == []; :164 assert isinstance(ei.value, (InsufficientBalance, SessionCapExceeded)); :165 assert client.process_calls() == []; :172 assert wallet.available_session() == 0; :173 assert len(client.process_calls()) == 1; fresh pytest PASSED all over-cap and up-to-session-cap tests."
+      },
+      {
+       "id": "L12",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py:72 assert published[\"nano\"][\"share_of_observed\"] == pytest.approx(expected_share); :81 assert p_own[\"nano\"][\"external_receipts\"] == 0; :82 assert p_own[\"nano\"][\"share_of_observed\"] == p_empty[\"nano\"][\"share_of_observed\"] == 0.0; fresh pytest PASSED test_l12_share_counts_only_external_receipts, test_l12_own_traffic_adds_exactly_zero_to_share, and test_count_external_receipts_uses_evidence_gate_semantics."
+      },
+      {
+       "id": "L13",
+       "pass": true,
+       "evidence": "tests/test_scorecard.py:111 assert ok, problems; :112 assert problems == []; :121 assert ok is False; :122 assert any(\"nano.fee\" in p for p in problems); fresh pytest PASSED test_cli_build_and_verify_is_reproducible and test_l13_verify_detects_figure_drift."
+      },
+      {
+       "id": "L14",
+       "pass": true,
+       "evidence": "tests/test_x402_draft.py:52 assert SPEC.is_file(); :90 assert \"at least two independent\" in flat and \"RPC endpoints\" in flat; :96 assert \"claim\" in text.lower() and \"exactly once\" in text.lower(); :108 def test_no_upstream_pr_opened_by_default(); fresh pytest shows all 8 test_x402_draft.py tests PASSED including spec sections, JSON consistency, exact scheme framing, and no PR."
+      },
+      {
+       "id": "L15",
+       "pass": true,
+       "evidence": "Fresh pytest PASSED tests/test_x402_draft_refimpl.py::test_refimpl_typechecks_against_published_x402_core, test_refimpl_implements_the_three_core_interfaces, test_refimpl_encodes_network_asset_and_64hex_proof, test_refimpl_fail_closed_two_independent_rpcs, test_refimpl_atomic_single_use_claim, test_refimpl_own_ts_tests_pass, test_pending_frames_refimpl_and_opens_no_pr; full suite 119 passed."
+      },
+      {
+       "id": "L16",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py:127 assert fac.supported()[\"scheme\"] == \"exact\"; :128 assert fac.supported()[\"network\"] == \"nano:live\"; :129 assert fac.supported()[\"asset\"] == \"XNO\"; :139 assert res[\"extra\"][\"confirmedOn\"] == 2; :162 assert \"fail-closed\" in res[\"invalidMessage\"]; fresh pytest PASSED all L16 tests including HTTP GET/POST."
+      },
+      {
+       "id": "L17",
+       "pass": true,
+       "evidence": "tests/test_facilitator.py:224 assert s2[\"errorReason\"] == \"duplicate\"; :264 assert c2.is_claimed(key) is True; :282 assert results.count(True) == 1; fresh pytest PASSED test_l17_settle_re_verifies_then_claims_atomically, test_l17_settle_never_trusts_prior_verify, test_l17_claim_store_persists_exactly_once_across_instances, test_l17_concurrent_settles_approve_exactly_once, and test_l17_http_post_settle_exactly_once."
+      },
+      {
+       "id": "L18",
+       "pass": true,
+       "evidence": "tests/test_facilitator_live.py:33 def test_normalize_parses_real_nano_block_info_shape(); :91 def test_incomplete_node_response_is_refused_not_passed(); :135 def test_live_confirms_real_send_on_two_independent_public_rpcs(); fresh pytest PASSED test_live_confirms_real_send_on_two_independent_public_rpcs, test_wrong_destination_refused_from_real_shape, and test_incomplete_node_response_is_refused_not_passed."
+      }
+     ],
+     "at": "2026-09-14T09:18:12+00:00"
+    },
+    {
+     "kind": "unwind",
+     "ok": false,
+     "results": [
+      {
+       "id": "L0",
+       "pass": true,
+       "evidence": "test_crypto.py:44 def test_private_key_derivation_matches_official_vector(): test_crypto.py:46 assert priv.hex().upper() == DOCS_PRIV; test_crypto.py:49 def test_public_key_derivation_matches_docs_keyexpand(): test_crypto.py:51 assert public_key(DOCS_PRIV_EXPAND).hex().upper() == DOCS_PUB_EXPAND; test_crypto.py:56 assert address_from_public_key(bytes.fromhex(DOCS_PUB_EXPAND)) == DOCS_ADDR_EXPAND. Full pytest: tests/test_crypto.py::test_private_key_derivation_matches_official_vector PASSED, test_public_key_derivation_matches_docs_keyexpand PASSED, test_address_matches_docs_keyexpand PASSED."
+      },
+      {
+       "id": "L1",
+       "pass": true,
+       "evidence": "test_client.py:23 def test_live_balance_read(client): test_client.py:26 assert raw.isdigit(); test_client.py:27 assert int(raw) > 0; test_client.py:32 def test_live_history_read(client):. Full pytest: tests/test_client.py::test_live_balance_read PASSED, tests/test_client.py::test_live_history_read PASSED."
+      },
+      {
+       "id": "L2",
+       "pass": false,
+       "evidence": "Missing evidence: no test source or command output demonstrates a live signed send through rpc.nano.to where the process response returns a block hash and that hash later appears in account_history. The full pytest shows tests/test_block.py::test_send_block_constructs_and_signature_is_valid PASSED and tests/test_block.py::test_live_confirmed_block_hash_recomputed PASSED, but neither is shown to perform the send/process/account_history sequence required by L2. 'Not contradicted' is a FAIL."
+      },
+      {
+       "id": "L3",
+       "pass": true,
+       "evidence": "test_wallet.py:56 def test_send_over_balance_raises_without_publishing(): test_wallet.py:62 assert not [c for c in client.calls if c['action'] == 'process']; test_wallet.py:63 assert w._sent_today() == 0; test_wallet.py:66 def test_send_over_daily_cap_raises_without_publishing(): test_wallet.py:72 assert w.available_today() == 0; test_wallet.py:77 assert len([c for c in client.calls if c['action'] == 'process']) == 1. Full pytest: both PASSED."
+      },
+      {
+       "id": "L4",
+       "pass": true,
+       "evidence": "test_payments.py:58 def test_l4_distinct_addresses_for_different_request_ids(svc): test_payments.py:61 assert a != b; test_payments.py:62 assert a.startswith('nano_') and b.startswith('nano_'); test_payments.py:68 assert a1 == a2; test_payments.py:65 def test_l4_same_request_id_reproduces_same_address(svc): test_payments.py:68 assert a1 == a2; test_payments.py:74-75 assert addr.startswith('nano_') and len(addr) == 65. Full pytest: PASSED."
+      },
+      {
+       "id": "L5",
+       "pass": true,
+       "evidence": "test_payments.py:93 def test_l5_approves_once_when_onchain_send_seen(svc): test_payments.py:102 assert res['status'] == 'approved'; test_payments.py:103 assert res['tx_hash'] == txh; test_payments.py:107 assert res2['status'] == 'spent'; test_payments.py:108 assert svc.store.is_approved(rid); test_payments.py:137 def test_l5_concurrent_claims_approve_exactly_once(svc):. Full pytest: both PASSED."
+      },
+      {
+       "id": "L6",
+       "pass": true,
+       "evidence": "tests/test_probe.py::test_end_to_end_pay_per_call_succeeds_and_is_replay_safe PASSED in full pytest -v output; test_probe.py:66 def test_end_to_end_pay_per_call_succeeds_and_is_replay_safe(tmp_path): test_probe.py:81 assert addr in qtext. Test name and passing output establish the end-to-end pay-per-call and replay-safety behavior."
+      },
+      {
+       "id": "L7",
+       "pass": true,
+       "evidence": "test_evidence.py:43 def test_append_logs_external_once(tmp_path): test_evidence.py:52 assert ok is True; test_evidence.py:53 assert _count_tx(db) == 1; test_evidence.py:55 assert row[2] == 'nano_tx'; test_evidence.py:57 assert data['external'] is True; test_evidence.py:58 assert data['direction'] == 'receive'; test_evidence.py:62 def test_append_never_logs_own_account(tmp_path): test_evidence.py:71 assert ok is False; test_evidence.py:72 assert _count_tx(db) == 0. Full pytest: both PASSED."
+      },
+      {
+       "id": "L8",
+       "pass": true,
+       "evidence": "test_pricing.py:40 def test_median_returns_middle_value(): test_pricing.py:41 assert median([...]) == Decimal('0.34'); test_pricing.py:42 assert median([Decimal('1'), Decimal('3')]) == Decimal('2'); test_pricing.py:55 assert fetch_median_xno_usd(tuple(three)) == Decimal('0.325'); test_pricing.py:97 def test_quote_usd_returns_exact_median_amount_and_no_money_moves(tmp_path): test_pricing.py:109 assert q.price_usd == '1.00'; test_pricing.py:110 assert q.rate_xno_usd == '0.34'; test_pricing.py:111 assert q.price_raw == usd_to_xno_raw(Decimal('1.00'), Decimal('0.34')); test_pricing.py:214 def test_live_median_of_three_sources_returns_numeric(): test_pricing.py:220 assert len(rates) == 3; test_pricing.py:222 assert r > 0; test_pricing.py:224 assert min(rates) <= m <= max(rates); test_pricing.py:226 assert Decimal('0.005') < m < Decimal('100'). Full pytest also: tests/test_pricing.py::test_quote_usd_is_pure_computation_no_chain_contact PASSED."
+      },
+      {
+       "id": "L9",
+       "pass": true,
+       "evidence": "test_pricing.py:163 def test_quote_expires_in_30_seconds_or_less(tmp_path): test_pricing.py:172 assert q.expires_at is not None; test_pricing.py:173 assert q.expires_at - 5000.0 <= QUOTE_TTL_SECONDS; test_pricing.py:174 assert q.expires_at - 5000.0 <= 30.0; test_pricing.py:176 assert q.expired(now=q.expires_at + 0.001); test_pricing.py:179 def test_verify_refuses_expired_quote__does_not_approve(tmp_path): test_pricing.py:193 assert out['status'] == 'expired'. Full pytest: both PASSED."
+      },
+      {
+       "id": "L10",
+       "pass": true,
+       "evidence": "test_buyer.py:90 def test_l10_valid_mandate_authorizes_send(): test_buyer.py:93 assert verify_mandate(wallet.mandate, OWNER_PUB, now=time.time()) is None; test_buyer.py:95 assert h == wallet.client.process_result['hash']; test_buyer.py:96 assert len(wallet.client.process_calls()) == 1; test_buyer.py:101 def test_l10_tampered_signature_refused_before_broadcast(): test_buyer.py:107 assert client.process_calls() == []. Full pytest also: test_l10_wrong_owner_public_key_refused PASSED, test_l10_expired_mandate_refused PASSED, test_l10_misbound_mandate_refused PASSED."
+      },
+      {
+       "id": "L11",
+       "pass": true,
+       "evidence": "test_buyer.py:139 def test_l11_over_session_cap_refused(): test_buyer.py:145 assert client.process_calls() == []; test_buyer.py:148 def test_l11_over_daily_cap_refused(): test_buyer.py:155 assert client.process_calls() == []; test_buyer.py:158 def test_l11_over_balance_refused(): test_buyer.py:164 assert isinstance(ei.value, (InsufficientBalance, SessionCapExceeded)); test_buyer.py:165 assert client.process_calls() == []; test_buyer.py:172 assert wallet.available_session() == 0; test_buyer.py:173 assert len(client.process_calls()) == 1. Full pytest: all PASSED."
+      },
+      {
+       "id": "L12",
+       "pass": true,
+       "evidence": "test_scorecard.py:62 def test_l12_share_counts_only_external_receipts(): test_scorecard.py:72 assert published['nano']['share_of_observed'] == pytest.approx(expected_share); test_scorecard.py:75 def test_l12_own_traffic_adds_exactly_zero_to_share(): test_scorecard.py:81 assert p_own['nano']['external_receipts'] == 0; test_scorecard.py:82 assert p_own['nano']['share_of_observed'] == p_empty['nano']['share_of_observed'] == 0.0. Full pytest: both PASSED plus test_count_external_receipts_uses_evidence_gate_semantics PASSED."
+      },
+      {
+       "id": "L13",
+       "pass": true,
+       "evidence": "test_scorecard.py:106 def test_l13_verify_passes_on_published_raw_data(): test_scorecard.py:111 assert ok, problems; test_scorecard.py:112 assert problems == []; test_scorecard.py:115 def test_l13_verify_detects_figure_drift(tmp_path): test_scorecard.py:121 assert ok is False; test_scorecard.py:122 assert any('nano.fee' in p for p in problems); test_scorecard.py:129 assert 'raw_file_hashes' in manifest and 'figures' in manifest; test_scorecard.py:130 assert 'nano.fee' in manifest['figures']. Full pytest also: tests/test_scorecard.py::test_cli_build_and_verify_is_reproducible PASSED."
+      },
+      {
+       "id": "L14",
+       "pass": true,
+       "evidence": "test_x402_draft.py:51 def test_spec_file_exists_at_x402_path(): test_x402_draft.py:52 assert SPEC.is_file(); test_x402_draft.py:55 def test_spec_has_all_required_sections(); test_x402_draft.py:87 def test_spec_encodes_strategy_law_l1_two_independent_rpcs(): test_x402_draft.py:90 assert 'at least two independent' in flat and 'RPC endpoints' in flat; test_x402_draft.py:94 def test_spec_encodes_single_use_claim(): test_x402_draft.py:96 assert 'claim' in text.lower() and 'exactly once' in text.lower(); test_x402_draft.py:108 def test_no_upstream_pr_opened_by_default(). Full pytest: all test_x402_draft.py tests PASSED."
+      },
+      {
+       "id": "L15",
+       "pass": true,
+       "evidence": "Full pytest -v output: tests/test_x402_draft_refimpl.py::test_refimpl_package_exists_at_x402_path PASSED, test_refimpl_package_metadata_marks_ai_agent_draft_unsubmitted PASSED, test_refimpl_implements_the_three_core_interfaces PASSED, test_refimpl_encodes_network_asset_and_64hex_proof PASSED, test_refimpl_fail_closed_two_independent_rpcs PASSED, test_refimpl_atomic_single_use_claim PASSED, test_refimpl_typechecks_against_published_x402_core PASSED, test_refimpl_own_ts_tests_pass PASSED, test_pending_frames_refimpl_and_opens_no_pr PASSED."
+      },
+      {
+       "id": "L16",
+       "pass": true,
+       "evidence": "test_facilitator.py:125 def test_l16_facilitator_exposes_supported_verify_settle(tmp_path): test_facilitator.py:127 assert fac.supported()['scheme'] == 'exact'; test_facilitator.py:128 assert fac.supported()['network'] == 'nano:live'; test_facilitator.py:129 assert fac.supported()['asset'] == 'XNO'; test_facilitator.py:131 assert callable(fac.verify) and callable(fac.settle); test_facilitator.py:134 def test_l16_verify_confirms_on_two_independent_endpoints(tmp_path): test_facilitator.py:139 assert res['extra']['confirmedOn'] == 2; test_facilitator.py:140 assert res['extra']['consulted'] == 2; test_facilitator.py:143 def test_l16_fail_closed_when_any_endpoint_errors(tmp_path); test_facilitator.py:155 def test_l16_refuses_less_than_two_endpoints(tmp_path): test_facilitator.py:162 assert 'fail-closed' in res['invalidMessage']. Full pytest: all named tests PASSED."
+      },
+      {
+       "id": "L17",
+       "pass": true,
+       "evidence": "test_facilitator.py:212 def test_l17_settle_re_verifies_then_claims_atomically(tmp_path): test_facilitator.py:224 assert s2['errorReason'] == 'duplicate'; test_facilitator.py:229 def test_l17_settle_never_trusts_prior_verify(tmp_path); test_facilitator.py:257 def test_l17_claim_store_persists_exactly_once_across_instances(tmp_path): test_facilitator.py:264 assert c2.is_claimed(key) is True; test_facilitator.py:268 def test_l17_concurrent_settles_approve_exactly_once(tmp_path): test_facilitator.py:282 assert results.count(True) == 1. Full pytest: all named tests PASSED."
+      }
+     ],
+     "at": "2026-09-14T09:33:35+00:00"
+    }
+   ]
   }
  },
  "deltas": [
@@ -2305,6 +2822,11 @@
    "block": 11,
    "text": "L15.verify_status: unverified → PASS (judge attempt 1 PASSED L15 quoting tests/test_x402_draft_refimpl.py incl. pending.md framing; full pytest suite 95 passed incl. 9 refimpl tests; npx tsc --noEmit clean vs @x402/core; 7 draft TS tests pass; tsup build ok). Judge attempt 2 returned wholesale 'missing evidence' on L0-L15 even though the identical evidence bundle quotes real PASSED pytest lines — the known-nondeterministic gather artifact from blocks 8/10, NOT a code regression. L12/L13 law-texts cross-reference each other's tests so evidence now quotes both scorecard tests. L2 remains STUCK (no funded wallet; AGENTS forbids seeking funds) — unchanged honest gap.",
    "at": "2026-09-14T07:30:38+00:00"
+  },
+  {
+   "block": 13,
+   "text": "L2.verify_status: unverified → STUCK (persists from block 3; no funded wallet, AGENTS forbids seeking funds — block 13 is read-only proof verification and does not fake a live funded send).",
+   "at": "2026-09-14T09:18:31+00:00"
   }
  ],
  "probe": {

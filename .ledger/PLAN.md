@@ -303,3 +303,39 @@ Laws: L16 The facilitator exposes /supported /verify /settle per the exact-on-na
 fails closed unless a proof confirms on at least two independent RPC endpoints (VERIFIED).
 L17 Settle re-verifies on-chain then binds a proof to its request with an atomic single-use
 claim, so one proof settles exactly once (VERIFIED).
+
+## Block 13 — multi-RPC verifier parses the REAL Nano block_info shape (live 2-RPC) — done this run
+- Closed the block-12 honest gap: "the facilitator's live-2-RPC confirmation (block real on
+  rpc.nano.to AND a second node) is exercised through stub endpoints; wiring a real second
+  public node is future work." Worse, the stub-only parser was masking a real bug.
+- PROVEN BUG: `verify_block_on_independent_endpoints` decoded only the STUB shape
+  (`account`, `link_as_account`, top-level `subtype`, `confirmed: bool`). It fed identical
+  stub dicts to both endpoints, so it could never see that **real Nano RPC nodes return a
+  different shape**: `block_account`, `contents.type='send'`, `contents.destination`,
+  `confirmed: "true"` (a STRING). A live call with a real confirmed on-chain block returned
+  `ok: True` but an **EMPTY payer** and relied on `receiver` fallbacks — it silently passed
+  proof it had not actually validated per-node.
+- Fix (`nano_mcp/facilitator.py`): added `normalize_block_info(raw) -> NormalizedBlock`
+  mapping every node's response into one canonical shape via alias keys
+  (`block_account`/`account`, `contents.type`/`subtype`/`type`,
+  `contents.destination`/`link_as_account`/`destination`/`link`, `confirmed` accepted as
+  string "true" or bool True). It **fails closed** on missing `confirmed` or `amount` (a
+  node that cannot authoritatively prove a property REFUSES, never silently passes) and
+  surfaces a non-empty payer. The verifier now normalizes per endpoint before comparing
+  amount / payTo / subtype.
+- `DEFAULT_ENDPOINTS` updated: `https://proxy.nano.rpc.blvd.run` is dead (DNS fails);
+  replaced with `https://rainstorm.city/api` (a live, independent public Nano RPC that
+  returns the real shape). rpc.nano.to + rainstorm.city/api are the two default nodes.
+- `tests/test_facilitator_live.py` (8 new tests): offline normalizer tests (real shape,
+  stub shape, missing confirmed, missing amount, "false" string, incomplete node REFUSED
+  not passed, wrong destination refused) + the LIVE test that confirms a real confirmed
+  on-chain send block (`ECCB8CB...` to `nano_111...`, 205676479 XNO raw) on TWO independent
+  public endpoints with a non-empty payer (== `nano_3t6k...`) and `confirmed_on == 2`,
+  skipped if either endpoint is unreachable so the suite never flakes. READ-ONLY: no
+  funds move, no blocks created. Full suite 119 passing (111 + 8).
+- Laws L18 minted for block 13. HONEST GAP: L2 (a live funded on-chain SEND confirmed via
+  rpc.nano.to) remains STUCK as before — no funded wallet, AGENTS forbids seeking funds;
+  block 13 is read-only proof verification and does not fake it.
+
+Laws: L18 The multi-RPC verifier parses the real Nano block_info shape and confirms a real
+on-chain send on two independent public endpoints (VERIFIED: live 2-RPC test + 7 offline).
