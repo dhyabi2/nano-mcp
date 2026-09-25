@@ -13,6 +13,14 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 
+# State the distribution's packages instead of relying on setuptools' flat-layout
+# auto-discovery. Auto-discovery refuses to build when it finds more than one
+# top-level directory that could be a package, and every non-source directory
+# added at the root (audits/, and anything like it later) becomes one.
+[tool.setuptools.packages.find]
+include = ["nano_sdk*"]
+exclude = ["tests*", "audits*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["network: tests that hit the live rpc.nano.to node"]
