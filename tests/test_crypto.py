@@ -2,6 +2,7 @@
 import hashlib
 
 import pytest
+from decimal import Decimal
 
 from nano_sdk import (
     address_from_public_key,
@@ -154,3 +155,23 @@ def test_nano_str_never_rounds_a_balance(raw):
 def test_nano_to_raw_accepts_a_full_30_decimal_amount():
     amount = "1.000000000000000000000000000001"  # 1 XNO + 1 raw, exactly representable
     assert nano_to_raw(amount) == 10**30 + 1
+
+# Every unusable amount raises ValueError, which is what nano_to_raw's docstring tells a caller
+# to handle. Before this was pinned, "nan" raised ValueError (via is_finite) while "abc", "",
+# "1,5" and None raised decimal.InvalidOperation — an ArithmeticError, not a ValueError — so the
+# documented handler caught some malformed amounts and let the rest through.
+@pytest.mark.parametrize("bad", ["abc", "", "1.2.3", "0x10", "nan", "inf", "1,5", "1 000", None, "1e", "--1"])
+def test_nano_to_raw_answers_one_documented_exception_for_every_unusable_amount(bad):
+    with pytest.raises(ValueError):
+        nano_to_raw(bad)
+
+
+def test_nano_to_raw_still_accepts_every_shape_it_did_before():
+    """The guard must not narrow what a valid amount may look like."""
+    assert nano_to_raw("1") == 10**30
+    assert nano_to_raw(1) == 10**30
+    assert nano_to_raw(Decimal("0.5")) == 5 * 10**29
+    assert nano_to_raw("1E+3") == 10**33          # scientific notation is a number
+    assert nano_to_raw("1e-30") == 1              # and so is the smallest raw
+    assert nano_to_raw("0") == 0
+    assert nano_to_raw("-0") == 0                 # negative zero is zero, not negative
