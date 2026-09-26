@@ -8,7 +8,7 @@ significant digits -- fewer than the 31 a whole-XNO raw balance carries. So thes
 conversions are done by rescaling the exponent (Decimal's constructor and int() are exact
 and context-free) rather than by multiplying or dividing by 10**30.
 """
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 RAW_PER_NANO = Decimal("1000000000000000000000000000000")  # 10**30
 RAW_EXPONENT = 30  # 1 nano = 10**RAW_EXPONENT raw
@@ -23,9 +23,18 @@ def _rescale(d: Decimal, shift: int) -> Decimal:
 def nano_to_raw(amount: str | Decimal | int) -> int:
     """Convert a nano amount (string or Decimal) to integer raw (10**30 scale).
 
-    Raises ValueError if the amount has more than 30 decimal places or is negative.
+    Raises ValueError if the amount is not a number, has more than 30 decimal places,
+    or is negative. ValueError and nothing else: this is the conversion an agent points at
+    an amount it was handed, so one documented exception has to cover every unusable input.
     """
-    d = Decimal(str(amount))
+    try:
+        d = Decimal(str(amount))
+    except InvalidOperation as ex:
+        # Decimal raises InvalidOperation, which is an ArithmeticError and NOT a ValueError, so
+        # the handler this docstring tells a caller to write did not catch a malformed amount.
+        # "nan" reached the is_finite() check below and DID raise ValueError, so the same function
+        # answered two different exception types for two kinds of unusable input.
+        raise ValueError(f"amount is not a number: {amount!r}") from ex
     if not d.is_finite():
         raise ValueError("amount must be a finite number")
     if d < 0:
