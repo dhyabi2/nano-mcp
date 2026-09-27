@@ -104,3 +104,27 @@ def test_invalid_destination_raises():
     w = Wallet(seed=SEED, client=client)
     with pytest.raises(ValueError):
         w.send("not_a_nano_address", int(nano_to_raw("0.001")))
+
+
+def test_wallet_repr_does_not_leak_the_seed():
+    """`repr(Wallet)` must never carry the seed.
+
+    `Account.__repr__` is deliberately overridden so a private key cannot reach a
+    log, and `test_account_repr_hides_private_key` pins it. `Wallet` holds the
+    *seed*, from which every account's private key derives, so it needs the same
+    guard: a dataclass repr prints every field, and anything that reprs locals
+    (a traceback with locals, `pytest -l`, `logging.exception`, a debugger, an
+    agent's own run log) would carry the seed with it.
+    """
+    seed = "9f" + "0e" * 31
+    w = Wallet(seed=seed, client=StubClient(balance_raw=1))
+    for rendered in (repr(w), str(w), f"{w}", "%r" % (w,)):
+        assert seed not in rendered
+        assert "seed" not in rendered
+    # bytes seeds must be hidden too, and not merely re-encoded
+    wb = Wallet(seed=bytes.fromhex(seed), client=StubClient(balance_raw=1))
+    assert seed not in repr(wb)
+    assert bytes.fromhex(seed).hex() not in repr(wb)
+    # the seed is still held and usable -- only its printing changed
+    assert w.seed == seed
+    assert w.account(0).address.startswith("nano_")

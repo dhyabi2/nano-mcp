@@ -45,7 +45,11 @@ class DailyCapExceeded(RuntimeError):
 class Wallet:
     """A Nano wallet (seed + derived accounts) with send guards."""
 
-    seed: bytes | str
+    # repr=False: the seed derives every account's private key, so it must not
+    # reach a log. A dataclass repr prints every field, and anything that reprs
+    # locals (a traceback with locals, pytest -l, logging.exception, a debugger)
+    # would carry it. Account.__repr__ hides the private key for the same reason.
+    seed: bytes | str = field(repr=False)
     client: ClientLike = field(default_factory=RpcClient)
     daily_cap_raw: int = DEFAULT_DAILY_CAP_RAW
     representative: str = DEFAULT_REPRESENTATIVE
