@@ -17,6 +17,7 @@ the repository root, so a root directory added later cannot break installation
 silently again.
 """
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -66,3 +67,58 @@ def test_the_sdk_is_the_package_that_ships():
     assert "nano_sdk" in packages, packages
     assert not any(p == "audits" or p.startswith("audits.") for p in packages), packages
     assert not any(p == "tests" or p.startswith("tests.") for p in packages), packages
+
+
+# --- what the distribution makes an installer fetch -------------------------
+#
+# `dependencies` is not documentation: every name in it is downloaded, resolved
+# against everything else in the installing environment, and installed, on every
+# `pip install nano-mcp`. A name nobody imports is therefore not harmless -- it
+# is weight and a resolver constraint a user pays for and cannot see the reason
+# for. This law reads the declared runtime dependencies and the imports the
+# shipped package actually makes, and requires the first to be covered by the
+# second.
+
+import ast
+import tomllib
+
+# Distribution name -> the module name it installs, where the two differ.
+_IMPORT_NAME = {"ed25519-blake2b-fork": "ed25519_blake2b"}
+
+
+def _declared_runtime_dependencies() -> set[str]:
+    data = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    names = set()
+    for spec in data["project"].get("dependencies", []):
+        # "httpx>=0.24" / "mcp >= 1.0" / "foo[bar]==1" -> "httpx" / "mcp" / "foo"
+        name = re.split(r"[<>=!~\[; ]", spec.strip(), maxsplit=1)[0]
+        if name:
+            names.add(name.lower())
+    return names
+
+
+def _modules_imported_by_the_shipped_package() -> set[str]:
+    modules = set()
+    for source in sorted((ROOT / "nano_sdk").rglob("*.py")):
+        tree = ast.parse(source.read_text(), filename=str(source))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules.add(node.module.split(".")[0])
+    return modules
+
+
+def test_every_declared_runtime_dependency_is_imported_by_the_shipped_package():
+    imported = _modules_imported_by_the_shipped_package()
+    unused = {
+        dep
+        for dep in _declared_runtime_dependencies()
+        if _IMPORT_NAME.get(dep, dep.replace("-", "_")) not in imported
+    }
+    assert not unused, (
+        "pyproject.toml makes every installer fetch these, and nothing under "
+        f"nano_sdk/ imports them: {sorted(unused)}. Either the code that needs "
+        "them is not in this distribution yet -- in which case the dependency "
+        "belongs with it, not here -- or the declaration is stale."
+    )

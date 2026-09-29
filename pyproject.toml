@@ -4,10 +4,17 @@ version = "0.1.0"
 description = "MCP server + SDK so any AI agent can hold XNO (Nano) and pay per API call, transacting through rpc.nano.to."
 readme = "README.md"
 requires-python = ">=3.10"
+# What `nano_sdk` imports, and nothing else. `mcp>=1.0` was declared here for the
+# `nano_mcp/` server, which this distribution does not contain yet (README, "Repo
+# layout": "later blocks"). Declaring it anyway made every install of the SDK
+# resolve and download the whole MCP server stack -- 25 further packages and
+# ~41 MB, among them starlette, uvicorn, pydantic, cryptography and PyJWT -- and
+# apply their version constraints to the installing environment, for code that is
+# not here. It belongs with `nano_mcp/` when `nano_mcp/` ships; the law in
+# tests/test_packaging.py will not let it drift back without an import to match.
 dependencies = [
     "httpx>=0.24",
     "ed25519-blake2b-fork>=1.4",
-    "mcp>=1.0",
 ]
 
 [project.optional-dependencies]
