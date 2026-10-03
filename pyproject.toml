@@ -7,7 +7,14 @@ requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.24",
     "ed25519-blake2b-fork>=1.4",
-    "mcp>=1.0",
+    # 2.0.0, not 1.0: `mcp.server.mcpserver` - which server.py and paidtool.py
+    # import - arrived with mcp 2.0.0, where the SDK renamed FastMCP to
+    # MCPServer. No 1.x release carries that module, so `mcp>=1.0` let a
+    # resolver satisfy this package with a version that cannot import it, and
+    # in an environment already holding mcp 1.x it installed nothing and the
+    # server raised ModuleNotFoundError on start. tests/test_dependency_floor.py
+    # holds the floor.
+    "mcp>=2.0.0",
 ]
 
 # The command an MCP host or directory starts. Without it the only way in was
