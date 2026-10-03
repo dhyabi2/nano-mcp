@@ -50,9 +50,21 @@ def derive_private_key(seed: bytes | str, index: int = 0) -> bytes:
 
 
 def public_key(private_key: bytes | str) -> bytes:
-    """Derive the 32-byte Ed25519-Blake2b public key from a 32-byte private key."""
+    """Derive the 32-byte Ed25519-Blake2b public key from a 32-byte private key.
+
+    Raises ValueError if the key is not 32 bytes (or 64 hex characters).
+    """
     if isinstance(private_key, str):
         private_key = bytes.fromhex(private_key)
+    # Check the length here rather than leaving it to SigningKey. SigningKey
+    # refuses most wrong lengths, but it also accepts a 64-byte
+    # "seed || verifying key" form and returns bytes 32:64 of it VERBATIM as the
+    # public key. So the 64 ASCII bytes of a hex-text key -- what .encode() gives,
+    # and what open(path, "rb").read() gives for a key file -- were echoed back as
+    # a "public key", yielding a well-formed, checksum-valid address that no
+    # private key can sign for. derive_private_key already guards the same slip.
+    if len(private_key) != 32:
+        raise ValueError("private key must be 32 bytes (64 hex chars)")
     return ed25519_blake2b.SigningKey(private_key).get_verifying_key().to_bytes()
 
 
@@ -82,6 +94,11 @@ def public_key_from_address(address: str) -> bytes:
 
     Raises ValueError if the address is malformed or the checksum is wrong.
     """
+    # A value that is not a string is malformed, not a different kind of failure.
+    # re.match() raises TypeError on None, bytes or an int, which escapes both the
+    # ValueError this function documents and validate_address()'s bool contract.
+    if not isinstance(address, str):
+        raise ValueError(f"address must be a string, got {type(address).__name__}")
     if not ADDRESS_RE.match(address):
         raise ValueError("malformed nano/xrb address")
     # Split on the separator, never on a fixed offset: the legacy prefix "xrb_"

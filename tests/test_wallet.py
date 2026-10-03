@@ -4,6 +4,8 @@ Uses a stub client so no network/funds are needed. The send pipeline reads
 account_info (for balance + frontier + representative) then enforces both guards
 before signing or broadcasting.
 """
+from decimal import Decimal
+
 import pytest
 
 from nano_sdk import DailyCapExceeded, InsufficientBalance, Wallet, nano_to_raw
@@ -128,3 +130,48 @@ def test_wallet_repr_does_not_leak_the_seed():
     # the seed is still held and usable -- only its printing changed
     assert w.seed == seed
     assert w.account(0).address.startswith("nano_")
+
+
+def test_check_send_rejects_an_amount_that_is_not_an_integer_count_of_raw():
+    """`check_send` is the guard that refuses *before* anything is signed or
+    published, so a non-integer amount has to be refused here, not later.
+
+    A float cannot hold a raw amount: at 10**30 raw to the XNO, binary floating
+    point has no exact representation. `block.py` catches it eventually, inside
+    `balance_raw.to_bytes(16, "big")`, but only as an `AttributeError` and only
+    after a `work_generate` round-trip has already been spent.
+    """
+    cap = int(nano_to_raw("0.01"))
+    for amount in (1e27, 0.001, Decimal(10 ** 27), "1000", b"1000", None, 1 + 0j):
+        client = StubClient(balance_raw=cap)
+        w = Wallet(seed=SEED, client=client)
+        with pytest.raises(ValueError):
+            w.check_send(amount, cap)
+
+
+def test_a_bool_amount_does_not_publish_a_send_of_one_raw():
+    """`True` is an `int` in Python and `True > 0`, so it passed every guard and
+    `raw_balance - True` published a real send block of 1 raw."""
+    cap = int(nano_to_raw("0.01"))
+    client = StubClient(balance_raw=cap)
+    w = Wallet(seed=SEED, client=client)
+    with pytest.raises(ValueError):
+        w.send(DEST, True)
+    assert [c["action"] for c in client.calls] == [], (
+        "a bool amount reached work_generate/process"
+    )
+
+
+def test_a_non_integer_amount_is_refused_before_work_or_process():
+    """The cost of refusing late: `work_generate` is a network round-trip, and on
+    a keyed public node a billable one. `send` reads `account_info` first either
+    way - that is a read - but no `work_generate` and no `process` may go out."""
+    cap = int(nano_to_raw("0.01"))
+    for amount in (1e27, Decimal(10 ** 27), "1000", True):
+        client = StubClient(balance_raw=cap)
+        w = Wallet(seed=SEED, client=client)
+        with pytest.raises(ValueError):
+            w.send(DEST, amount)
+        assert [c["action"] for c in client.calls] == [], (
+            f"{amount!r} reached work_generate/process before being refused"
+        )

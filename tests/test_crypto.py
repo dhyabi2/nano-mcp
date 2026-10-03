@@ -252,3 +252,66 @@ def test_the_length_check_changes_no_address_the_library_produces():
         # bytearray and memoryview are the same 32 bytes and must still encode
         assert address_from_public_key(bytearray(acct.public_key)) == acct.address
         assert address_from_public_key(memoryview(acct.public_key)) == acct.address
+
+
+def test_a_non_string_address_is_refused_not_a_crash():
+    """validate_address() is documented to return a bool and
+    public_key_from_address() to raise ValueError. Both used re.match() on their
+    argument first, which raises TypeError for None, bytes or an int -- so the
+    documented handler (`except ValueError`) did not catch a missing or
+    wrongly-typed address, and the validator crashed instead of answering False."""
+    addr = derive_account(DOCS_SEED, 0).address
+    for bad in (None, 123, addr.encode(), bytearray(addr.encode()), ["nano_x"], {}):
+        assert validate_address(bad) is False
+        with pytest.raises(ValueError):
+            public_key_from_address(bad)
+
+
+def test_the_wallet_guard_reports_a_non_string_destination_as_a_bad_address():
+    """Wallet.send validates its destination through validate_address, so the
+    crash surfaced there: a destination read as bytes, or absent from a config
+    and arriving as None, raised TypeError out of the guard instead of the
+    wallet's own ValueError, before any balance or cap was even considered."""
+    from nano_sdk import Wallet
+
+    class NeverCalled:
+        def account_info(self, account):  # pragma: no cover - must not be reached
+            raise AssertionError("the guard must refuse before any RPC")
+
+        def call(self, **payload):  # pragma: no cover - must not be reached
+            raise AssertionError("the guard must refuse before any RPC")
+
+    wallet = Wallet(seed=DOCS_SEED, client=NeverCalled())
+    good = derive_account(DOCS_SEED, 0).address
+    for bad in (None, good.encode()):
+        with pytest.raises(ValueError, match="destination is not a valid"):
+            wallet.send(bad, 1)
+
+
+def test_the_ascii_bytes_of_a_hex_key_are_refused_not_silently_accepted():
+    """A 64-byte input is not a 32-byte private key, and must not be treated as one.
+
+    `ed25519_blake2b.SigningKey` also accepts the 64-byte "seed || verifying key"
+    form, in which bytes 32:64 are returned as the public key VERBATIM. So the 64
+    ASCII bytes of a hex-text key -- what `.encode()` gives, and what
+    `open(path, "rb").read()` gives for a key file -- produced a well-formed,
+    checksum-valid address with no private key behind it. Money sent to such an
+    address is unspendable by anyone.
+    """
+    hex_key = "00" * 31 + "01"
+    correct = public_key(bytes.fromhex(hex_key))
+    assert public_key(hex_key) == correct  # the hex-string form is unaffected
+
+    ascii_bytes = hex_key.encode()
+    assert len(ascii_bytes) == 64
+    with pytest.raises(ValueError):
+        public_key(ascii_bytes)
+
+
+def test_public_key_accepts_exactly_32_bytes_and_refuses_every_other_length():
+    """`derive_private_key` already guards its length; this one did not, and 64 was
+    the length that slipped through into a wrong-but-valid-looking address."""
+    assert len(public_key(b"\x01" * 32)) == 32
+    for n in (0, 1, 16, 31, 33, 48, 64, 96):
+        with pytest.raises(ValueError):
+            public_key(b"\x01" * n)
