@@ -10,6 +10,17 @@ from .crypto import (
     validate_address,
 )
 from .units import nano_str, nano_to_raw, raw_to_nano
+from .buyer import (
+    DailyCapExceeded as BuyerDailyCapExceeded,
+    ExpiredMandate,
+    Mandate,
+    MandateError,
+    SessionCapExceeded,
+    SessionWallet,
+    derive_session_account,
+    issue_mandate,
+    verify_mandate,
+)
 from .wallet import (
     DailyCapExceeded,
     InsufficientBalance,
@@ -20,22 +31,31 @@ from .wallet import (
 
 __all__ = [
     "Account",
+    "BuyerDailyCapExceeded",
     "DailyCapExceeded",
     "DEFAULT_DAILY_CAP_RAW",
+    "ExpiredMandate",
     "InsufficientBalance",
+    "Mandate",
+    "MandateError",
     "RpcBalanceError",
     "RpcClient",
     "RpcError",
+    "SessionCapExceeded",
+    "SessionWallet",
     "Wallet",
     "address_from_public_key",
     "derive_account",
     "derive_private_key",
+    "derive_session_account",
+    "issue_mandate",
     "nano_str",
     "nano_to_raw",
     "public_key",
     "public_key_from_address",
     "raw_to_nano",
     "validate_address",
+    "verify_mandate",
 ]
 
 __version__ = "0.1.0"

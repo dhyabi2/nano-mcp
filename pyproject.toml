@@ -10,6 +10,11 @@ dependencies = [
     "mcp>=1.0",
 ]
 
+# The command an MCP host or directory starts. Without it the only way in was
+# `python -m nano_mcp.server`, which no registry entry can be expected to guess.
+[project.scripts]
+nano-mcp = "nano_mcp.server:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=7"]
 
@@ -18,7 +23,7 @@ dev = ["pytest>=7"]
 # top-level directory that could be a package, and every non-source directory
 # added at the root (audits/, and anything like it later) becomes one.
 [tool.setuptools.packages.find]
-include = ["nano_sdk*"]
+include = ["nano_sdk*", "nano_mcp*"]
 exclude = ["tests*", "audits*"]
 
 [tool.pytest.ini_options]

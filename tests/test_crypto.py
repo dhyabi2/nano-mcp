@@ -245,3 +245,32 @@ def test_the_wallet_guard_reports_a_non_string_destination_as_a_bad_address():
     for bad in (None, good.encode()):
         with pytest.raises(ValueError, match="destination is not a valid"):
             wallet.send(bad, 1)
+
+
+def test_the_ascii_bytes_of_a_hex_key_are_refused_not_silently_accepted():
+    """A 64-byte input is not a 32-byte private key, and must not be treated as one.
+
+    `ed25519_blake2b.SigningKey` also accepts the 64-byte "seed || verifying key"
+    form, in which bytes 32:64 are returned as the public key VERBATIM. So the 64
+    ASCII bytes of a hex-text key -- what `.encode()` gives, and what
+    `open(path, "rb").read()` gives for a key file -- produced a well-formed,
+    checksum-valid address with no private key behind it. Money sent to such an
+    address is unspendable by anyone.
+    """
+    hex_key = "00" * 31 + "01"
+    correct = public_key(bytes.fromhex(hex_key))
+    assert public_key(hex_key) == correct  # the hex-string form is unaffected
+
+    ascii_bytes = hex_key.encode()
+    assert len(ascii_bytes) == 64
+    with pytest.raises(ValueError):
+        public_key(ascii_bytes)
+
+
+def test_public_key_accepts_exactly_32_bytes_and_refuses_every_other_length():
+    """`derive_private_key` already guards its length; this one did not, and 64 was
+    the length that slipped through into a wrong-but-valid-looking address."""
+    assert len(public_key(b"\x01" * 32)) == 32
+    for n in (0, 1, 16, 31, 33, 48, 64, 96):
+        with pytest.raises(ValueError):
+            public_key(b"\x01" * n)
