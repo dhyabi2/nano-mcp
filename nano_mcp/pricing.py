@@ -12,20 +12,23 @@ balance, never sends a block, never touches anyone's funds. The buyer pays the
 returned exact raw XNO directly on-chain to the one-time payment address, and
 the seller receives XNO on the chain — Rai never sits between or converts money.
 
-All money math uses Decimal; raw is always an integer (1 XNO = 10**30 raw) so no
-precision is ever lost. The XNO amount is rounded UP (ceiling) to the raw so the
-seller never under-receives the quoted USD value at the quoted rate.
+Raw is always an integer (1 XNO = 10**30 raw). The USD -> raw conversion is done
+in integer arithmetic rather than Decimal arithmetic, because Decimal rounds to
+the active context precision (28 significant digits by default, against raw's
+39) and that rounding is not recoverable by a later ceiling. The XNO amount is
+rounded UP (ceiling) to the raw so the seller never under-receives the quoted USD
+value at the quoted rate.
 
 Sources are callables () -> Decimal so they are injectable for offline tests.
 """
 from __future__ import annotations
 
-from decimal import Decimal, ROUND_CEILING
+from decimal import Decimal
 from typing import Callable
 
 import httpx
 
-from nano_sdk.units import RAW_PER_NANO
+from nano_sdk.units import RAW_EXPONENT
 
 # A dollar quote is honored only within this window from issue (<= 30s).
 QUOTE_TTL_SECONDS = 30
@@ -94,14 +97,41 @@ def usd_to_xno_raw(price_usd: Decimal, rate_xno_usd: Decimal) -> int:
     (USD per XNO), rounding UP so the seller never under-receives.
 
     raw_xno = ceil(price_usd / rate_xno_usd * 10**30)
+
+    Computed in **integer** arithmetic, not Decimal arithmetic. `price / rate` is
+    usually a non-terminating decimal, and Decimal rounds every operation to the
+    active context precision -- which defaults to 28 significant digits, while a
+    raw amount reaches 39. So the old `(price / rate) * RAW_PER_NANO` was rounded
+    at the 28th digit before `to_integral_value(ROUND_CEILING)` ever saw it, and
+    the ceiling could not recover what the division had already thrown away:
+    ($1.00, 0.34) quoted 176 raw too much, ($1.00, 0.33) **304 raw too little** --
+    the direction this function's own docstring promises cannot happen.
+
+    It was also not self-contained: nothing here sets the context, so the quoted
+    amount moved with the `prec` of whatever program imported `nano_mcp`
+    (...059000 at 28, ...058824 at 40). Nano has no memo, so the amount is the
+    tag a payment is matched by; two sides computing it under different contexts
+    do not agree on the number.
+
+    Every Decimal is an exact ratio of integers, so the ceiling is computed
+    exactly from those ratios and no context is consulted at all.
     """
-    if price_usd <= 0:
+    price = Decimal(str(price_usd))
+    rate = Decimal(str(rate_xno_usd))
+    if not price.is_finite() or not rate.is_finite():
+        raise ValueError(
+            f"price and rate must be finite numbers: {price_usd!r}, {rate_xno_usd!r}"
+        )
+    if price <= 0:
         raise ValueError("price_usd must be positive")
-    if rate_xno_usd <= 0:
+    if rate <= 0:
         raise ValueError("rate_xno_usd must be positive")
-    xno = price_usd / rate_xno_usd
-    raw_dec = (xno * RAW_PER_NANO).to_integral_value(rounding=ROUND_CEILING)
-    return int(raw_dec)
+    price_num, price_den = price.as_integer_ratio()
+    rate_num, rate_den = rate.as_integer_ratio()
+    numerator = price_num * rate_den * 10**RAW_EXPONENT
+    denominator = price_den * rate_num
+    # ceiling division on integers: -(-a // b)
+    return -(-numerator // denominator)
 
 
 def exact_xno_amount(
