@@ -58,6 +58,12 @@ jobs:
       # the server with no configuration, ask for the tool list. server_from_env
       # is documented to work unconfigured, and this is the step that would have
       # been red for the whole life of the `mcp>=1.0` declaration.
+      #
+      # This asks in process, which is the weaker half of the claim - it never
+      # runs main(), the console script, or the stdio transport a directory
+      # actually speaks. tests/test_directory_handshake.py does the real
+      # exchange over a pipe and runs in the suite step above, on every leg of
+      # this matrix; the `directory` job below runs it against the built image.
       - name: The server starts unconfigured and lists its tools
         run: |
           python - <<'PY'
@@ -115,3 +121,35 @@ jobs:
           assert tools, "the server started but exposes no tools"
           print(f"the declared floor starts and exposes {len(tools)} tools")
           PY
+
+  directory:
+    name: a directory can build the image and introspect it
+    runs-on: ubuntu-latest
+
+    # Glama - the gate `punkpeye/awesome-mcp-servers` holds our listing behind -
+    # builds the Dockerfile and then speaks JSON-RPC over the container's stdio
+    # until it has an answer to `tools/list`. That is the whole bar, in their
+    # bot's words: "we only need the server to start and respond to introspection
+    # requests".
+    #
+    # This job is the only place that bar is measured end to end. The suite above
+    # runs the same client against a subprocess, which covers main(), the console
+    # script and the transport - but not the image, and the image is what a
+    # directory is handed. It is also the one check the cloud session that wrote
+    # the Dockerfile could not run: the docker CLI is installed there with no
+    # daemon behind it, so the file went up verified step by step in a clean
+    # interpreter and never once built. A red leg here is a finding about the
+    # Dockerfile, not a flake.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build the image a directory builds
+        run: docker build -t nano-mcp:ci .
+
+      - name: Start the container and complete the handshake over its stdio
+        # `-i` because stdio is the transport: the container has to keep its
+        # stdin. No secret is passed, which is the point of the gate.
+        run: python tools/directory_handshake.py -- docker run -i --rm nano-mcp:ci

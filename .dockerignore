@@ -1,0 +1,15 @@
+# Keep the build context to what `pip install .` actually reads. pyproject.toml
+# already excludes these from the distribution; leaving them out of the context
+# too keeps the image a directory pulls small.
+.git
+.github
+.ledger
+audits
+draft
+scorecard
+tests
+tools
+*.egg-info
+__pycache__
+**/__pycache__
+.pytest_cache
