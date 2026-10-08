@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import time
 from decimal import Decimal
+from fractions import Fraction
 
 import pytest
 
@@ -67,13 +68,23 @@ def test_fetch_median_requires_two_healthy():
 
 def test_usd_to_xno_raw_rounds_up_never_underpays():
     # $1.00 at $0.34/XNO -> 2.941176... XNO -> ceil to a whole raw.
+    #
+    # `expect` is computed with Fraction, NOT by repeating
+    # `Decimal("1.00") / Decimal("0.34") * RAW_PER_NANO`. That expression is what
+    # the function used to do, and it is rounded to the context precision (28
+    # significant digits, against raw's 39) -- so restating it here asserted the
+    # rounding was present rather than that the amount was right, and this test
+    # passed while the quote was 176 raw off. Fraction is exact and consults no
+    # context.
+    price, rate = Fraction(Decimal("1.00")), Fraction(Decimal("0.34"))
     raw = usd_to_xno_raw(Decimal("1.00"), Decimal("0.34"))
-    expect = int((Decimal("1.00") / Decimal("0.34") * RAW_PER_NANO).to_integral_value(
-        rounding="ROUND_CEILING"
-    ))
+    expect = -(-(price * 10**30).numerator * rate.denominator
+               // ((price * 10**30).denominator * rate.numerator))
     assert raw == expect
-    # the seller receives at least the quoted USD value at that rate
-    assert raw * Decimal("0.34") >= Decimal("1.00") * RAW_PER_NANO
+    # the seller receives at least the quoted USD value at that rate -- in exact
+    # arithmetic, because at prec 28 `raw * Decimal("0.34")` is itself rounded
+    # and the comparison passed by coincidence.
+    assert raw * rate >= price * 10**30
 
 
 def test_usd_to_xno_raw_rejects_non_positive():
@@ -90,8 +101,9 @@ def test_exact_xno_amount_uses_fixed_rate_offline():
     assert rate == Decimal("0.34")
     expect = usd_to_xno_raw(Decimal("1.00"), Decimal("0.34"))
     assert raw == expect
-    # exact: amount == price / median rate, rounded up at raw scale
-    assert raw >= int(Decimal("1.00") / Decimal("0.34") * RAW_PER_NANO)
+    # exact: amount >= price / median rate at raw scale. In Fraction, not in the
+    # rounded Decimal expression this used to repeat.
+    assert raw * Fraction(Decimal("0.34")) >= Fraction(Decimal("1.00")) * 10**30
 
 
 def test_quote_usd_returns_exact_median_amount_and_no_money_moves(tmp_path):
