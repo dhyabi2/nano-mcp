@@ -31,6 +31,39 @@ python -m pytest -m "not network"   # offline tests
 python -m pytest                    # includes live rpc.nano.to reads
 ```
 
+## Run it as an MCP server
+
+Any MCP host starts the command the package installs and speaks JSON-RPC over its
+stdin and stdout:
+
+```bash
+pip install .
+nano-mcp                       # or: python -m nano_mcp.server
+```
+
+Or from the container, which is what an MCP directory builds. `-i` matters: stdio
+is the transport, so the container has to keep its stdin.
+
+```bash
+docker build -t nano-mcp .
+docker run -i --rm nano-mcp
+```
+
+Either way the server **starts with nothing configured** and lists all seven
+tools, because that is the first thing a directory or a host asks it. The
+read-only tools work unconfigured; the tools that derive a payment address
+refuse until `NANO_PAYMENT_MASTER_SECRET` is set, naming it. No stand-in secret
+is ever generated — a throwaway key would mint payment addresses whose private
+keys die with the process, and XNO sent to one of those is unrecoverable.
+
+To check that for yourself, exactly the way a directory does:
+
+```bash
+python tools/directory_handshake.py -- nano-mcp
+# 7 tools: get_address, get_balance, get_history, pay_and_call, quote, quote_usd, verify_payment
+# the handshake completed: a directory can start this server and list its tools
+```
+
 ## Address encoding (verified against the node)
 
 `PrivK[i] = blake2b-256(seed || uint32be(i))`, public key via Ed25519-Blake2b, address =
