@@ -126,7 +126,10 @@ def _accepted_matches(server_requirements: dict, accepted: dict) -> str | None:
     for key in ("scheme", "network", "asset", "amount", "payTo"):
         if accepted.get(key) != server_requirements.get(key):
             return f"accepted.{key} does not match the requirements issued for this request"
-    if accepted.get("extra", {}).get("requestId") != server_requirements["extra"]["requestId"]:
+    # `or {}`, not `.get("extra", {})`: an `extra` present and null returns None
+    # from the latter and `.get` on it raised AttributeError. `complete()` has
+    # already refused an `extra` that is neither absent, null nor an object.
+    if (accepted.get("extra") or {}).get("requestId") != server_requirements["extra"]["requestId"]:
         return "accepted.extra.requestId does not match the requirements issued for this request"
     return None
 
@@ -179,6 +182,18 @@ class ResourceApp:
             "payment_required": payment_required_obj(requirements, resource=self.resource),
         }
 
+    @staticmethod
+    def _refused(message: str) -> dict:
+        """The refusal `complete()` returns for a payload it will not read. The
+        HTTP adapter turns it into a 402 with the reason, never a dropped
+        connection."""
+        return {
+            "ok": False,
+            "invalid": True,
+            "error_reason": "invalid",
+            "error_message": message,
+        }
+
     def complete(self, payload: dict) -> dict:
         """Verify + settle a presented PaymentPayload against a fresh derivation
         of the server's own requirements for that request. Returns a result dict
@@ -187,26 +202,32 @@ class ResourceApp:
           {ok: True,  settlement: <SettleResponse dict>, resource: self.resource}
           {ok: False, error_reason: str, error_message: str, invalid: True}
         """
+        # The presented payload is a stranger's bytes: a base64 `payment-signature`
+        # decoding to anything but an object, or carrying an `accepted` or an
+        # `extra` that is not one, reached `.get` here and raised AttributeError
+        # out of `complete()`. In the HTTP adapter below that escaped `do_GET`,
+        # so the seller answered a malformed payload by DROPPING THE CONNECTION
+        # with no status at all - the buyer cannot tell its own bad payload from
+        # a seller that is down, and a traceback is printed per request. The
+        # facilitator's /verify and /settle were fixed the same way; this is the
+        # resource-server half of the same handshake.
+        if not isinstance(payload, dict):
+            return self._refused("payload must be a JSON object")
         accepted = payload.get("accepted") or {}
-        request_id = str((accepted.get("extra") or {}).get("requestId") or "")
+        if not isinstance(accepted, dict):
+            return self._refused("payload.accepted must be a JSON object")
+        extra = accepted.get("extra") or {}
+        if not isinstance(extra, dict):
+            return self._refused("payload.accepted.extra must be a JSON object")
+        request_id = str(extra.get("requestId") or "")
         if not request_id:
-            return {
-                "ok": False,
-                "invalid": True,
-                "error_reason": "invalid",
-                "error_message": "payload.accepted.extra.requestId is required",
-            }
+            return self._refused("payload.accepted.extra.requestId is required")
         server_requirements = derive_requirements(
             self.master_secret, request_id, self.amount_raw, self.max_timeout
         )
         mismatch = _accepted_matches(server_requirements, accepted)
         if mismatch is not None:
-            return {
-                "ok": False,
-                "invalid": True,
-                "error_reason": "invalid",
-                "error_message": mismatch,
-            }
+            return self._refused(mismatch)
 
         # Verify (>=2 independent RPCs, fail-closed), then settle (re-verify +
         # atomic single-use claim). The facilitator never trusts a prior result.
