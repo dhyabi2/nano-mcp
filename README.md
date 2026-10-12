@@ -64,6 +64,28 @@ python tools/directory_handshake.py -- nano-mcp
 # the handshake completed: a directory can start this server and list its tools
 ```
 
+## Upgrade notes: payment proofs and the claim store
+
+- Claims are case-insensitive on the block hash. One payment settles once
+  whatever hex case its `paymentProof` is spelt in. The node is asked for the
+  hash as sent, and `transaction` in verify/settle responses echoes it as sent.
+- `consumption_key(block_hash, request_id)` now returns the hash upper-cased
+  (the request_id is unchanged, and stays case-sensitive). `ClaimStore.claim`
+  and `is_claimed` normalise the hash the same way. A custom `claim_store` is
+  asked to claim the canonical (upper-case) key; before that, `settle` also asks
+  its `is_claimed` about the key spelt exactly as sent, so a claim it stored
+  under an older spelling still counts.
+- The built-in `ClaimStore` migrates an existing `claims.db` once, on open: each
+  old-spelling key also gets its canonical key (old rows are kept), and
+  `PRAGMA user_version` records that it ran. If the file is read-only or locked,
+  the open still succeeds and the migration is retried on the next open. New
+  claims are also stored under the key as sent, so a rollback to the previous
+  release still finds them.
+- A `paymentProof` with a trailing newline (or any other character outside the
+  64 hex digits) is refused.
+- `PaidToolServer.execute` (`paid_tool_execute`) returns an `invalid` refusal
+  for a malformed proof instead of raising `ValueError`.
+
 ## Address encoding (verified against the node)
 
 `PrivK[i] = blake2b-256(seed || uint32be(i))`, public key via Ed25519-Blake2b, address =
