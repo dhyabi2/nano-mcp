@@ -150,7 +150,11 @@ class Wallet:
         raw_balance = int(info.get("balance", "0"))
         frontier_hex = info.get("frontier") or "0" * 64
         frontier = bytes.fromhex(frontier_hex)  # 32 raw bytes
-        rep = info.get("representative", self.representative)
+        # `or`, not a default argument: the node omits this key entirely for an
+        # unopened account, and `get(k, d)` would also hand a blank string
+        # through to `public_key_from_address`. `client.account_info` asks for
+        # the field; this is what happens when the answer still has none.
+        rep = info.get("representative") or self.representative
         frontier_ascii = frontier_hex.encode()  # hex string for work_generate
 
         self.check_send(amount_raw, raw_balance)

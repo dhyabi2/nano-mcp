@@ -61,7 +61,18 @@ class RpcClient:
         return self.call(action="account_balance", account=account)
 
     def account_info(self, account: str) -> dict:
-        return self.call(action="account_info", account=account)
+        """Account state, INCLUDING the representative.
+
+        `representative="true"` is not optional padding: a stock Nano node, and
+        rpc.nano.to with it, returns `frontier`, `balance`, `open_block`,
+        `representative_block`, `block_count`, `confirmation_height` and
+        `modified_timestamp` and NO `representative` key unless this flag is set
+        (checked against the live node, 2026-10-12). Both send paths read
+        `info.get("representative", <fallback>)` to carry the account's existing
+        representative into the block they sign, and without the flag that read
+        never found one, so every send silently re-delegated the account.
+        """
+        return self.call(action="account_info", account=account, representative="true")
 
     def account_history(self, account: str, count: int = 10, offset: int = 0, sorting: str = "desc") -> dict:
         return self.call(action="account_history", account=account, count=count, offset=offset, sorting=sorting)

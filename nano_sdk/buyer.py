@@ -295,7 +295,12 @@ class SessionWallet:
 
         frontier_hex = info.get("frontier") or "0" * 64
         frontier = bytes.fromhex(frontier_hex)
-        rep = info.get("representative", self.account.address)
+        # See Wallet.send: `or`, so a blank answer falls back rather than
+        # reaching public_key_from_address. Without the flag that
+        # `client.account_info` now sets, this read never found a
+        # representative and every session send re-delegated the sub-account to
+        # itself.
+        rep = info.get("representative") or self.account.address
         frontier_ascii = frontier_hex.encode()
 
         if work is None:
