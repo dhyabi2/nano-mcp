@@ -53,6 +53,11 @@ class StubClient:
         self.process_result = {"hash": "CD" * 32}
 
     def account_info(self, account: str) -> dict:
+        # This stands in for `RpcClient.account_info`, which asks the node for
+        # the representative (`representative="true"`). A bare `account_info`
+        # answer carries no such key, and this stub returning one unconditionally
+        # is why nothing noticed that every send re-delegated the account --
+        # see tests/test_send_keeps_the_representative.py.
         return {
             "balance": str(self.balance_raw),
             "frontier": self.frontier,
