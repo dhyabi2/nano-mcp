@@ -293,3 +293,67 @@ def test_an_explicit_representative_does_not_depend_on_the_nodes_answer(node):
     w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative=DEST)
     _, blk = w.send(DEST, int(nano_to_raw("0.001")))
     assert blk["representative"] == DEST
+
+
+# -- which representative wins, pinned exactly as the README states it ---------------
+#
+# `Wallet.representative` defaults to None, and `__post_init__` both records whether
+# one was passed and replaces None with DEFAULT_REPRESENTATIVE (so
+# `wallet.representative` still reads as an address). `_send_representative` then
+# treats "explicitly set" as `_representative_explicit or representative !=
+# DEFAULT_REPRESENTATIVE`, because a later assignment leaves no other trace than the
+# value it wrote.
+#
+# That has one consequence worth stating rather than discovering: assigning exactly
+# DEFAULT_REPRESENTATIVE after construction cannot be told apart from never having
+# set one. The README says so; this pins it, so the two cannot drift.
+
+DEFAULT_REP = "nano_1stofnrxuz3cai7ze75o174bpm7scwj9jn3nxsn8ntzg784jf1gzn1jjdkou"
+THIRD_REP = "nano_1q3hqecaw15cjt7thbtxu3pbzr1eihtzzpzxguoc37bj1wc5ffoh7w74gi6p"
+
+
+def _send_with(node, wallet) -> str:
+    _, blk = wallet.send(DEST, int(nano_to_raw("0.001")))
+    return blk["representative"]
+
+
+def test_no_representative_passed_keeps_the_accounts_own(node):
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"))
+    assert w.representative == DEFAULT_REP, "still reads as an address, not None"
+    assert _send_with(node, w) == CHOSEN_REP
+
+
+def test_an_explicit_representative_wins_over_the_nodes(node):
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative=THIRD_REP)
+    assert _send_with(node, w) == THIRD_REP
+
+
+def test_passing_the_default_explicitly_still_re_delegates(node):
+    """The upgrade note tells callers who relied on the old behaviour to do this."""
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative=DEFAULT_REP)
+    assert _send_with(node, w) == DEFAULT_REP
+
+
+def test_assigning_a_representative_after_construction_wins(node):
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"))
+    w.representative = THIRD_REP
+    assert _send_with(node, w) == THIRD_REP
+
+
+def test_assigning_the_default_representative_is_not_an_explicit_choice(node):
+    """The one case the rule cannot express. Stated in the README; pinned here.
+
+    Keeping the account's current representative is the safer of the two
+    outcomes, which is why it is documented rather than worked around with a
+    property or a __setattr__ hook on the send path.
+    """
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"))
+    w.representative = DEFAULT_REP
+    assert _send_with(node, w) == CHOSEN_REP, (
+        "an assignment of the default is indistinguishable from never setting one"
+    )

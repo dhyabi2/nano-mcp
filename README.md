@@ -81,9 +81,12 @@ who the account delegates its voting weight to.
   the node reports for the account. Only an account with none (unopened, or a
   blank answer) gets `DEFAULT_REPRESENTATIVE`. `wallet.representative` still
   reads as that default.
-- **A representative passed explicitly** (`Wallet(representative=X)`, or
-  assigning `wallet.representative` later): every send signs X, re-delegating
-  the account to it.
+- **A representative passed explicitly** (`Wallet(representative=X)`): every
+  send signs X, re-delegating the account to it. Assigning
+  `wallet.representative = X` after construction does the same, with one
+  exception: assigning exactly `DEFAULT_REPRESENTATIVE` is indistinguishable
+  from never having set one, so such a wallet keeps the account's current
+  representative. Pass it to the constructor to re-delegate to the default.
 - `SessionWallet` (buyer SDK) has no representative option: a session send keeps
   the sub-account's current representative, or the sub-account's own address if
   it has none.

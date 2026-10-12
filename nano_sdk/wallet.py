@@ -77,6 +77,16 @@ class Wallet:
         `wallet.representative` later). Otherwise the account keeps the one the
         node reports, validated (RpcError if malformed), falling back to
         DEFAULT_REPRESENTATIVE when the node reports none.
+
+        The one case the sentence above does not cover: a wallet built with no
+        representative and later ASSIGNED exactly DEFAULT_REPRESENTATIVE is
+        indistinguishable from one that never set it -- an assignment leaves no
+        other trace than the value, and the value is the default. Such a wallet
+        keeps the account's current representative. Re-delegating to the default
+        on purpose means passing it to the constructor, where the explicit flag
+        records it. Pinned by
+        tests/test_send_keeps_the_representative.py::test_assigning_the_default_representative_is_not_an_explicit_choice,
+        so the README and this cannot drift from the code again.
         """
         if self._representative_explicit or self.representative != DEFAULT_REPRESENTATIVE:
             rep = self.representative
