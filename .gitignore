@@ -10,3 +10,5 @@ dist/
 uv.lock
 tests/_tmp_published.json
 node_modules/
+*.db-wal
+*.db-shm
