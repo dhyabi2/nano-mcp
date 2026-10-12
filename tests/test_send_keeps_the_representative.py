@@ -3,8 +3,8 @@
 Both send paths carry the account's existing representative into the block they
 sign:
 
-    nano_sdk/wallet.py   rep = info.get("representative") or self.representative
-    nano_sdk/buyer.py    rep = info.get("representative") or self.account.address
+    nano_sdk/wallet.py   rep = self._send_representative(info)   # explicit rep, else node's, else default
+    nano_sdk/buyer.py    rep = representative_from_info(info) or self.account.address
 
 A fallback is right for an unopened account, which has no representative yet.
 But `account_info` was called without `representative="true"`, and a Nano node
@@ -175,3 +175,121 @@ def test_the_live_node_sends_no_representative_unless_asked():
         "rpc.nano.to now sends a representative unasked; re-read this fix"
     )
     assert client.account_info(CHOSEN_REP).get("representative")
+
+
+# -- an explicitly chosen representative still wins ---------------------------
+
+def test_an_explicit_representative_is_used_over_the_nodes(node):
+    """`Wallet(representative=X)` is the SDK's only way to choose a
+    representative; the node-reported one must not silently override it."""
+    explicit = DEST  # any valid address that is neither CHOSEN_REP nor the default
+    n = node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative=explicit)
+    _, blk = w.send(DEST, int(nano_to_raw("0.001")))
+    assert blk["representative"] == explicit
+    assert n.sent("process")["block"]["representative"] == explicit
+
+
+def test_an_explicit_default_representative_is_still_explicit(node):
+    """Passing DEFAULT_REPRESENTATIVE by name is a choice, not "no choice"."""
+    from nano_sdk.wallet import DEFAULT_REPRESENTATIVE
+
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"),
+               representative=DEFAULT_REPRESENTATIVE)
+    _, blk = w.send(DEST, int(nano_to_raw("0.001")))
+    assert blk["representative"] == DEFAULT_REPRESENTATIVE
+
+
+def test_assigning_a_representative_after_construction_is_used(node):
+    node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"))
+    w.representative = DEST
+    _, blk = w.send(DEST, int(nano_to_raw("0.001")))
+    assert blk["representative"] == DEST
+
+
+def test_the_attribute_still_reads_as_an_address_by_default():
+    from nano_sdk.wallet import DEFAULT_REPRESENTATIVE
+
+    assert Wallet(seed=SEED).representative == DEFAULT_REPRESENTATIVE
+    assert Wallet(seed=SEED, representative=DEST).representative == DEST
+
+
+def test_an_invalid_explicit_representative_fails_before_work(node):
+    n = node(int(nano_to_raw("0.005")))
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative="nano_bogus")
+    with pytest.raises(ValueError):
+        w.send(DEST, int(nano_to_raw("0.001")))
+    actions = [p.get("action") for p in n.payloads]
+    assert "work_generate" not in actions and "process" not in actions
+
+
+# -- the node-supplied representative is validated before work ----------------
+
+BAD_NODE_REPS = [
+    pytest.param(123, id="int"),
+    pytest.param(["nano_x"], id="list"),
+    pytest.param({"a": 1}, id="object"),
+    pytest.param(True, id="bool"),
+    pytest.param("nano_bogus", id="malformed"),
+    # Valid shape, last checksum character changed.
+    pytest.param(CHOSEN_REP[:-1] + ("a" if CHOSEN_REP[-1] != "a" else "b"), id="bad-checksum"),
+]
+
+
+@pytest.mark.parametrize("bad", BAD_NODE_REPS)
+def test_a_malformed_node_representative_raises_rpcerror_before_work(node, bad):
+    from nano_sdk.client import RpcError
+
+    n = node(int(nano_to_raw("0.005")), rep=bad)
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"))
+    with pytest.raises(RpcError):
+        w.send(DEST, int(nano_to_raw("0.001")))
+    actions = [p.get("action") for p in n.payloads]
+    assert actions == ["account_info"], f"requested after a bad reply: {actions}"
+
+
+@pytest.mark.parametrize("bad", BAD_NODE_REPS)
+def test_a_malformed_node_representative_fails_a_session_send_before_work(node, bad):
+    import time as _time
+
+    from nano_sdk.buyer import SessionWallet, derive_session_account, issue_mandate
+    from nano_sdk.client import RpcError
+    from nano_sdk.crypto import derive_account
+
+    master = bytes.fromhex("22" * 32)
+    owner = derive_account(master, 0)
+    now = _time.time()
+    acct = derive_session_account(master, "sess-bad-rep")
+    mandate = issue_mandate(
+        owner.private_key, "sess-bad-rep", acct.address, int(nano_to_raw("0.003")),
+        expires_at=now + 3600, issued_at=now,
+    )
+    n = node(int(nano_to_raw("0.005")), rep=bad)
+    wallet = SessionWallet(
+        acct, owner.public_key, mandate,
+        client=RpcClient(url="https://rpc.invalid"), clock=lambda: now,
+    )
+    with pytest.raises(RpcError):
+        wallet.send(DEST, int(nano_to_raw("0.001")))
+    assert [p.get("action") for p in n.payloads] == ["account_info"]
+    assert wallet.available_session() == int(nano_to_raw("0.003"))
+
+
+@pytest.mark.parametrize("rep", [None, "", "   "])
+def test_representative_from_info_treats_missing_or_blank_as_none(rep):
+    from nano_sdk.client import representative_from_info
+
+    info = {} if rep is None else {"representative": rep}
+    assert representative_from_info(info) is None
+    assert representative_from_info({"representative": None}) is None
+
+
+def test_an_explicit_representative_does_not_depend_on_the_nodes_answer(node):
+    """The node's representative is not signed when the caller chose one, so a
+    garbage value there does not block the caller's send."""
+    node(int(nano_to_raw("0.005")), rep=123)
+    w = Wallet(seed=SEED, client=RpcClient(url="https://rpc.invalid"), representative=DEST)
+    _, blk = w.send(DEST, int(nano_to_raw("0.001")))
+    assert blk["representative"] == DEST

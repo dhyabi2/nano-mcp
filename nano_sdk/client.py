@@ -10,6 +10,8 @@ import os
 
 import httpx
 
+from .crypto import validate_address
+
 DEFAULT_RPC_URL = "https://rpc.nano.to"
 
 
@@ -19,6 +21,31 @@ class RpcError(RuntimeError):
     That is: a non-2xx response, a body that is not JSON, a body that is not a JSON object, and
     a JSON object carrying an `error` key. A caller handling RpcError has handled all of them.
     """
+
+
+def representative_from_info(info: dict) -> str | None:
+    """The representative a node's `account_info` answer reports, validated.
+
+    Returns None when the answer carries no usable representative -- the key is
+    absent (an unopened account, or a node that ignored `representative=true`),
+    null, or blank -- so the caller can take its own fallback.
+
+    Anything else is about to be hashed and signed into a block, so it is checked
+    here, before a `work_generate` round-trip is spent or anything is signed: a
+    value that is not a string, or a string that is not a checksum-valid nano_
+    address, is not a usable node reply and raises RpcError.
+    """
+    rep = info.get("representative") if isinstance(info, dict) else None
+    if rep is None:
+        return None
+    if not isinstance(rep, str):
+        raise RpcError(f"account_info returned a representative that is not a string: "
+                       f"{type(rep).__name__} {str(rep)[:100]!r}")
+    if not rep.strip():
+        return None
+    if not validate_address(rep):
+        raise RpcError(f"account_info returned a malformed representative: {rep[:100]!r}")
+    return rep
 
 
 class RpcClient:

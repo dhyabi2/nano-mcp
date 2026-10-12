@@ -64,6 +64,49 @@ python tools/directory_handshake.py -- nano-mcp
 # the handshake completed: a directory can start this server and list its tools
 ```
 
+## Sending from a wallet (SDK)
+
+```python
+from nano_sdk import Wallet
+
+w = Wallet(seed=SEED)                              # keeps the account's current representative
+w = Wallet(seed=SEED, representative="nano_...")   # every send re-delegates to this one
+block_hash, block = w.send("nano_...", amount_raw)
+```
+
+A Nano send block carries the account's representative, so every send also says
+who the account delegates its voting weight to.
+
+- **No representative passed** (the default): a send keeps the representative
+  the node reports for the account. Only an account with none (unopened, or a
+  blank answer) gets `DEFAULT_REPRESENTATIVE`. `wallet.representative` still
+  reads as that default.
+- **A representative passed explicitly** (`Wallet(representative=X)`, or
+  assigning `wallet.representative` later): every send signs X, re-delegating
+  the account to it.
+- `SessionWallet` (buyer SDK) has no representative option: a session send keeps
+  the sub-account's current representative, or the sub-account's own address if
+  it has none.
+
+The RPC node (`rpc.nano.to` by default) is trusted for the representative just
+as it already is for the frontier and balance a send is built from. Its answer
+is checked before any proof-of-work is requested: a representative that is not a
+string or not a checksum-valid `nano_` address raises `RpcError`, and nothing is
+signed or broadcast.
+
+### Upgrade note: representatives on send
+
+Earlier versions re-delegated the account on every send: `RpcClient.account_info`
+did not ask the node for the representative, so `Wallet.send` always signed
+`DEFAULT_REPRESENTATIVE` and `SessionWallet.send` always signed the sub-account's
+own address. Now:
+
+- `RpcClient.account_info` sends `representative=true`, and its result has a
+  `representative` key (for an opened account).
+- Sends keep the account's current representative unless one is passed
+  explicitly. Code that relied on `Wallet()` re-pointing accounts at
+  `DEFAULT_REPRESENTATIVE` should pass `representative=DEFAULT_REPRESENTATIVE`.
+
 ## Address encoding (verified against the node)
 
 `PrivK[i] = blake2b-256(seed || uint32be(i))`, public key via Ed25519-Blake2b, address =
