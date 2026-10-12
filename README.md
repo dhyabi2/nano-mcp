@@ -77,16 +77,13 @@ block_hash, block = w.send("nano_...", amount_raw)
 A Nano send block carries the account's representative, so every send also says
 who the account delegates its voting weight to.
 
-- **No representative passed** (the default): a send keeps the representative
-  the node reports for the account. Only an account with none (unopened, or a
-  blank answer) gets `DEFAULT_REPRESENTATIVE`. `wallet.representative` still
-  reads as that default.
-- **A representative passed explicitly** (`Wallet(representative=X)`): every
-  send signs X, re-delegating the account to it. Assigning
-  `wallet.representative = X` after construction does the same, with one
-  exception: assigning exactly `DEFAULT_REPRESENTATIVE` is indistinguishable
-  from never having set one, so such a wallet keeps the account's current
-  representative. Pass it to the constructor to re-delegate to the default.
+- **No representative passed** (`representative=None`, the default): a send
+  keeps the representative the node reports for the account. Only an account
+  with none (unopened, or a blank answer) gets `DEFAULT_REPRESENTATIVE`.
+- **A representative passed or assigned** (`Wallet(representative=X)`, or
+  `wallet.representative = X` later): every send signs X, re-delegating the
+  account to it. Any address counts, `DEFAULT_REPRESENTATIVE` included.
+  Assigning `None` goes back to keeping the account's current representative.
 - `SessionWallet` (buyer SDK) has no representative option: a session send keeps
   the sub-account's current representative, or the sub-account's own address if
   it has none.
@@ -109,6 +106,11 @@ own address. Now:
 - Sends keep the account's current representative unless one is passed
   explicitly. Code that relied on `Wallet()` re-pointing accounts at
   `DEFAULT_REPRESENTATIVE` should pass `representative=DEFAULT_REPRESENTATIVE`.
+- `Wallet.representative` now defaults to `None` and is kept exactly as given,
+  so a wallet built without one reads `None` there (it used to read
+  `DEFAULT_REPRESENTATIVE`). Code that read the attribute to learn which
+  representative a send would sign should treat `None` as "the account's
+  current one".
 
 ## Address encoding (verified against the node)
 

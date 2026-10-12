@@ -55,40 +55,24 @@ class Wallet:
     # None (the default) means "keep whatever representative the account already
     # has": a send carries the node-reported representative into the block, and
     # only an account with none (unopened, or a blank answer) gets
-    # DEFAULT_REPRESENTATIVE. A representative passed here explicitly is used for
-    # every send instead, re-delegating the account to it. After construction
-    # this attribute always reads as an address (the default when none was
-    # passed), so existing code that reads `wallet.representative` keeps working.
+    # DEFAULT_REPRESENTATIVE. Any address here -- passed to the constructor or
+    # assigned later, DEFAULT_REPRESENTATIVE included -- is an explicit choice
+    # and every send signs it, re-delegating the account to it. The value is kept
+    # exactly as given, so a wallet built without one reads None here.
     representative: str | None = None
     # Per-wallet rolling spend tracker: daytime-epoch -> raw sent that day.
     _spend: dict[int, int] = field(default_factory=dict)
     _day: int = field(default_factory=lambda: int(time.time()) // 86400)
-    _representative_explicit: bool = field(default=False, init=False, repr=False)
-
-    def __post_init__(self) -> None:
-        self._representative_explicit = self.representative is not None
-        if self.representative is None:
-            self.representative = DEFAULT_REPRESENTATIVE
 
     def _send_representative(self, info: dict) -> str:
         """The representative a send from this account signs into its block.
 
-        A caller-chosen representative wins (set at construction, or assigned to
-        `wallet.representative` later). Otherwise the account keeps the one the
-        node reports, validated (RpcError if malformed), falling back to
-        DEFAULT_REPRESENTATIVE when the node reports none.
-
-        The one case the sentence above does not cover: a wallet built with no
-        representative and later ASSIGNED exactly DEFAULT_REPRESENTATIVE is
-        indistinguishable from one that never set it -- an assignment leaves no
-        other trace than the value, and the value is the default. Such a wallet
-        keeps the account's current representative. Re-delegating to the default
-        on purpose means passing it to the constructor, where the explicit flag
-        records it. Pinned by
-        tests/test_send_keeps_the_representative.py::test_assigning_the_default_representative_is_not_an_explicit_choice,
-        so the README and this cannot drift from the code again.
+        `self.representative` set (not None): validated (ValueError if it is not
+        a valid nano_ address) and used. None: the representative the node
+        reports for the account, validated (RpcError if malformed), falling back
+        to DEFAULT_REPRESENTATIVE when the node reports none.
         """
-        if self._representative_explicit or self.representative != DEFAULT_REPRESENTATIVE:
+        if self.representative is not None:
             rep = self.representative
             if not validate_address(rep):
                 raise ValueError(f"representative is not a valid nano_ address: {rep!r}")
