@@ -145,6 +145,10 @@ python tools/directory_handshake.py -- nano-mcp
 `nano_` + fixed-width-52 big-endian base32 of the public key + fixed-width-8 base32 of the
 little-endian `blake2b-40(public_key)` checksum.
 
+## Spend-capped sub-wallet (operator-held cap)
+
+See [`docs/SPEND-CAPPED-SUBWALLET.md`](docs/SPEND-CAPPED-SUBWALLET.md) and `examples/spend_policy.py`: three policy lines (per call, per day, allowed receivers), decisions only, no key.
+
 ## Status
 
 Built and verified under the Law Ledger (`.ledger/`): blocks 2–15 done.
