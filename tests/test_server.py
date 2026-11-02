@@ -91,3 +91,11 @@ def test_mcp_verify_approves_once(tmp_path):
         assert v2["status"] == "spent"
 
     asyncio.run(main())
+
+
+def test_verify_block_multi_is_a_listed_tool(tmp_path):
+    async def go():
+        server, _ = await _make_server(tmp_path)
+        names = {t.name for t in await server.list_tools()}
+        assert "verify_block_multi" in names
+    asyncio.run(go())

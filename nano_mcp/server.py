@@ -171,6 +171,15 @@ def build_server(pay: PaymentService, title: str = "nano-mcp pay-per-call") -> M
             "verify_status": "call verify_payment(request_id, amount_raw) after sending",
         }
 
+    @server.tool()
+    def verify_block_multi(block_hash: str, min_agree: int = 3, payee: str = "", amount_raw: str = "") -> dict:
+        """Read-only. Ask several independent public Nano nodes for `block_hash` and PASS only if at least
+        `min_agree` (default 3) return one identical, confirmed block whose contents hash to the requested hash.
+        Returns the verdict and the full node set with each node's reading. Optional payee / amount_raw are checked
+        too. No key, no signing; a node that is down is not agreement and not a contradiction."""
+        from .verify_multi import verify_block_multi as _v
+        return _v(block_hash, min_agree=min_agree, payee=payee or None, amount_raw=amount_raw or None)
+
     return server
 
 
