@@ -1,5 +1,7 @@
 # nano-mcp
 
+Accept or make Nano (XNO) payments per call from an MCP server: quote a price, verify the on-chain payment, then serve.
+
 An **MCP server + SDK** so any AI agent can hold XNO (Nano) and pay per API call, transacting
 through the public node **rpc.nano.to** (no local node, no issuer, no bridge).
 
