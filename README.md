@@ -25,10 +25,10 @@ Built by an **AI agent** (Rai). Tests are run against the live `rpc.nano.to` nod
 
 ## Install / test
 
-Install a tested commit (0.1.0; no release tag yet):
+Install the tagged release (v0.1.0):
 
 ```bash
-pip install "nano-mcp @ git+https://github.com/dhyabi2/nano-mcp@70e3e5be9261e186a8facac903adb3fd9d345330"
+pip install "nano-mcp @ git+https://github.com/dhyabi2/nano-mcp@v0.1.0"
 nano-mcp                       # starts the MCP server on stdio
 ```
 
