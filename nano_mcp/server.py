@@ -8,6 +8,8 @@ Tools (all stdio MCPServer, mcp v2 API where FastMCP was renamed MCPServer):
   quote             -> {request_id, address, price_raw} one-time payment address for a call
   pay_and_call      -> agent side: send price to the quoted address, then call a tool (stub)
   verify_payment    -> service side: approve the call once the matching on-chain send is seen
+  verify_block_multi-> read-only: believe a block only when several public nodes return the same one
+  plan_pay_from_usdc-> read-only: would this much USDC, swapped, cover an XNO price? (moves nothing)
 
 The server is constructed from a PaymentService; the master secret comes from
 the NANO_PAYMENT_MASTER_SECRET env var (seeds/keys stay out of repos).
@@ -179,6 +181,19 @@ def build_server(pay: PaymentService, title: str = "nano-mcp pay-per-call") -> M
         too. No key, no signing; a node that is down is not agreement and not a contradiction."""
         from .verify_multi import verify_block_multi as _v
         return _v(block_hash, min_agree=min_agree, payee=payee or None, amount_raw=amount_raw or None)
+
+    @server.tool()
+    def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amount: str,
+                           network: str = "BASE") -> dict:
+        """Read-only. You hold USDC and a seller's 402 asks for XNO: would swapping `usdc_amount` USDC on `network`
+        cover `amount_raw` to `pay_to`, with 1% headroom? Asks Nanswap's public quote endpoints and returns the
+        plan: what arrives in `own_account` (YOUR nano_ account - never the seller's), the service's limits, and
+        the three steps. Moves nothing: no order, no key, no signing. An estimate is not a firm quote."""
+        from .usdc_plan import PlanRefused, plan_pay_from_usdc as _plan
+        try:
+            return _plan(pay_to, amount_raw, own_account, usdc_amount, network)
+        except PlanRefused as exc:
+            raise ToolError("%s: %s" % (exc.reason, exc)) from exc
 
     return server
 
