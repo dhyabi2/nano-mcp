@@ -13,8 +13,12 @@ What it refuses, and why:
   - `own_account` equal to `pay_to`: pointing the swap straight at the seller looks like it saves a step, and it
     breaks the payment - the service sends whatever the swap yielded, not the exact raw the 402 asked for, from
     the service's account, so the seller cannot match it to the call.
-  - a network left out: USDC lives on many chains, and USDC sent on the wrong one does not come back.
-  - anything the service answers that is not understood: a field is never defaulted.
+  - a network left out: USDC lives on many chains, and USDC sent on the wrong one does not come back. There is
+    no default chain; `network` must be named.
+  - anything the service answers that is not understood: a field is never defaulted. A reply with a non-2xx
+    status is refused, and an estimate must answer the question asked: its `amountFrom` (which the service
+    echoes) must equal `usdc_amount` exactly, or it is refused; its `from` / `to`, when present, must name the
+    pair asked (the service does not echo them today, so their absence is accepted).
 
 Measured against the live API on 2026-11-12; the real replies are pinned in tests/test_usdc_plan.py. Amounts are
 read as their exact text on the wire and handled as integers - a float never holds an XNO amount here.
@@ -23,12 +27,14 @@ Doing the hop (creating the order needs a Nanswap API key, and the swap is custo
 tool: see https://github.com/dhyabi2/agent-wallet-multirail (`pay_nano_quote_from_usdc`), which records the order
 so a retry cannot buy it twice and sends the seller the exact raw.
 
-  python3 nano_mcp/usdc_plan.py PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT [NETWORK]   # stdlib only
+  python3 nano_mcp/usdc_plan.py PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT NETWORK   # stdlib only
 Exit 0 when the amount covers the price, 1 otherwise.
 """
 from __future__ import annotations
 
+import http.client
 import json
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -50,6 +56,9 @@ MAX_RAW = 2 ** 128 - 1
 #: Decimal's default context keeps 28 digits and an XNO amount in raw has up to 39: every operation on a
 #: provider's number goes through this one, or the last digits are silently rounded away.
 _EXACT = Context(prec=120)
+#: An amount as JSON writes a non-negative number: ASCII digits, an optional fraction and exponent. Nothing else
+#: that Decimal() would also take - no sign, no `_`, no spaces, no full-width digits, no `15.` or `.5`.
+_NUMBER = re.compile(r"(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?", re.ASCII)
 
 
 class PlanRefused(ValueError):
@@ -63,12 +72,23 @@ class PlanRefused(ValueError):
 def _fetch(url: str) -> object:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
-        with urllib.request.urlopen(request, timeout=20) as reply:
-            text = reply.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        text = exc.read().decode("utf-8", "replace")
-    except (urllib.error.URLError, OSError) as exc:
-        raise PlanRefused("provider_unreachable", "the swap service could not be read (%s)" % exc) from exc
+        try:
+            with urllib.request.urlopen(request, timeout=20) as reply:
+                status, text = reply.status, reply.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            status, text = exc.code, exc.read().decode("utf-8", "replace")
+    except (urllib.error.URLError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
+        # URLError and ConnectionResetError are OSErrors; IncompleteRead is an HTTPException.
+        raise PlanRefused("provider_unreachable", "the swap service could not be read (%r)" % (exc,)) from exc
+    if not 200 <= status < 300:
+        said = None
+        try:
+            body = json.loads(text)
+            said = body.get("message") if isinstance(body, dict) else None
+        except ValueError:
+            pass
+        raise PlanRefused("provider_refused", "the swap service answered HTTP %s%s" % (
+            status, ": %r" % said if isinstance(said, str) else ""))
     try:
         return json.loads(text, parse_float=str)     # a number stays the exact text that was sent
     except ValueError as exc:
@@ -92,9 +112,12 @@ def _decimal(reply: dict, name: str, path: str) -> Decimal:
     if isinstance(value, bool) or not isinstance(value, (str, int)):
         raise PlanRefused("provider_response_unrecognised",
                           "%s: %r is %s, not an exact amount" % (path, name, type(value).__name__))
+    if not _NUMBER.fullmatch(str(value)):
+        raise PlanRefused("provider_response_unrecognised",
+                          "%s: %r is not a decimal amount (%r)" % (path, name, value))
     try:
-        number = Decimal(str(value).strip())
-    except InvalidOperation as exc:
+        number = Decimal(str(value))
+    except InvalidOperation as exc:  # pragma: no cover - the pattern admits only what Decimal reads
         raise PlanRefused("provider_response_unrecognised",
                           "%s: %r is not a decimal amount (%r)" % (path, name, value)) from exc
     if not number.is_finite() or number < 0 or number.adjusted() > 40 or -number.as_tuple().exponent > 60:
@@ -133,7 +156,7 @@ def _account(value, name: str) -> str:
 
 
 def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amount: str,
-                       network: str = "BASE", fetch=None) -> dict:
+                       network: str, fetch=None) -> dict:
     """Read-only plan for paying `amount_raw` to `pay_to` from USDC on `network`. Raises PlanRefused."""
     fetch = fetch or _fetch
     if not (isinstance(amount_raw, str) and amount_raw.isascii() and amount_raw.isdigit()) \
@@ -148,8 +171,9 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
                           "raw is then sent on: a swap pointed at the seller delivers what it yielded, not the "
                           "price, from the swap service's account")
     net = network.strip().upper() if isinstance(network, str) else ""
-    if not net.isalnum():
-        raise PlanRefused("invalid_network", "name the chain the USDC is on, such as 'BASE' (got %r)" % (network,))
+    if not (net.isascii() and net.isalnum()):
+        raise PlanRefused("invalid_network", "network is required: name the chain the USDC is on, such as 'BASE' "
+                                             "(got %r). There is no default chain" % (network,))
     ticker = "USDC-" + net
     spend = _usdc_micro(usdc_amount)
 
@@ -176,6 +200,20 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
         return out
 
     estimate = _ask(fetch, "/get-estimate", {"from": ticker, "to": "XNO", "amount": _usdc(spend)})
+    # The estimate must answer the question asked. The service echoes amountFrom (and, today, not from/to).
+    if "amountFrom" not in estimate:
+        raise PlanRefused("provider_response_unrecognised",
+                          "/get-estimate: the reply does not say what amount it estimated (no 'amountFrom')")
+    echoed = _decimal(estimate, "amountFrom", "/get-estimate")
+    if _EXACT.multiply(echoed, Decimal(MICRO)) != Decimal(spend):
+        raise PlanRefused("provider_response_unrecognised",
+                          "/get-estimate: the reply is for %r USDC, not the %s asked"
+                          % (estimate["amountFrom"], _usdc(spend)))
+    for field, asked in (("from", ticker), ("to", "XNO")):
+        if field in estimate and not (isinstance(estimate[field], str)
+                                      and estimate[field].strip().upper() == asked):
+            raise PlanRefused("provider_response_unrecognised",
+                              "/get-estimate: the reply is for %s %r, not %s" % (field, estimate[field], asked))
     estimated_raw = _scaled(_decimal(estimate, "amountTo", "/get-estimate"), RAW_PER_XNO, ROUND_FLOOR)
     covers = estimated_raw >= needed_raw
     out.update(covers=covers, estimated_raw=str(estimated_raw),
@@ -193,7 +231,7 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
 
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not 4 <= len(argv) <= 5:
+    if len(argv) != 5:
         print(__doc__.strip().splitlines()[-2].strip(), file=sys.stderr)
         return 2
     try:

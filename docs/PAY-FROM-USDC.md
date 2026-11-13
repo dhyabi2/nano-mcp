@@ -10,18 +10,20 @@ still cannot pay it. The way through is three steps, and only the middle one is 
 `plan_pay_from_usdc` (an MCP tool of this server, and a script) is read-only. It asks Nanswap's public quote
 endpoints - no key, no account - whether an amount of USDC would cover a price, with 1% headroom.
 
-    python3 nano_mcp/usdc_plan.py PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT [NETWORK]
+    python3 nano_mcp/usdc_plan.py PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT NETWORK
 
 `PAY_TO` and `AMOUNT_RAW` come from the seller's 402 entry. `OWN_ACCOUNT` is your nano_ account, where the swap
-lands. `NETWORK` is the chain your USDC is on (default `BASE`). Exit 0 when the amount covers the price.
+lands. `NETWORK` is the chain your USDC is on, such as `BASE`; it is required, with no default, in the script and
+in the MCP tool alike. Exit 0 when the amount covers the price.
 
 Run on 2026-11-12 for a 0.15 XNO price from 0.5 USDC on Base it answered `"covers": true`, an estimate of
 1.32 XNO, and the service's limits that minute (0.173061 to 3279.971835 USDC). Under the minimum it says so and
 asks for no estimate.
 
 What it will not plan: a swap paid straight to the seller (the service would send what the swap yielded, not the
-exact raw, from its own account, so the seller cannot match it to the call), a pair with no network named, and any
-reply from the service it does not understand.
+exact raw, from its own account, so the seller cannot match it to the call), a pair with no network named, a reply with
+a non-2xx status, an estimate whose `amountFrom` is not the amount asked (or that leaves it out) or whose
+`from` / `to`, when given, are not the pair asked, and any other reply from the service it does not understand.
 
 ## Then the hop itself
 

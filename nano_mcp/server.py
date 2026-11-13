@@ -184,7 +184,7 @@ def build_server(pay: PaymentService, title: str = "nano-mcp pay-per-call") -> M
 
     @server.tool()
     def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amount: str,
-                           network: str = "BASE") -> dict:
+                           network: str) -> dict:
         """Read-only. You hold USDC and a seller's 402 asks for XNO: would swapping `usdc_amount` USDC on `network`
         cover `amount_raw` to `pay_to`, with 1% headroom? Asks Nanswap's public quote endpoints and returns the
         plan: what arrives in `own_account` (YOUR nano_ account - never the seller's), the service's limits, and
