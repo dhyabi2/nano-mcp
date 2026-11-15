@@ -229,10 +229,10 @@ class _Reply:
     def close(self):
         pass
 
-    def read(self):
+    def read(self, size=-1):
         if self.error is not None:
             raise self.error
-        return self.body
+        return self.body if size is None or size < 0 else self.body[:size]
 
 
 def _http_error(code, body=b"", error=None):
@@ -284,3 +284,55 @@ def test_a_reply_that_breaks_while_it_is_read_is_unreachable_not_a_crash(monkeyp
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_unreachable"
+
+
+@pytest.mark.parametrize("network", ["baſe", "arbıtrum", "BAſE"])
+def test_a_network_name_upper_would_turn_into_ascii_is_refused(network):
+    seen = []
+    with pytest.raises(u.PlanRefused) as caught:
+        u.plan_pay_from_usdc(SELLER, PRICE, BUYER, "5", network, fetch=wire(seen=seen))
+    assert caught.value.reason == "invalid_network" and seen == []
+
+
+@pytest.mark.parametrize("args", [
+    (SELLER, "1" * 5000, BUYER, "5", "BASE"),
+    (SELLER, PRICE, BUYER, "1" * 5000, "BASE"),
+    (SELLER, PRICE, BUYER, "1" * 5000 + ".5", "BASE"),
+])
+def test_an_amount_with_thousands_of_digits_is_refused_not_crashed_on(args):
+    seen = []
+    with pytest.raises(u.PlanRefused) as caught:
+        u.plan_pay_from_usdc(*args, fetch=wire(seen=seen))
+    assert caught.value.reason == "invalid_amount" and seen == []
+
+
+def test_a_deeply_nested_reply_is_unrecognised_not_a_crash(monkeypatch):
+    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: _Reply(b"[" * 200000))
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch("https://api.nanswap.com/v1/get-limits")
+    assert caught.value.reason == "provider_response_unrecognised"
+
+
+def test_a_deeply_nested_error_body_still_gives_the_status(monkeypatch):
+    def urlopen(request, timeout=None):
+        raise _http_error(500, b"[" * 200000)
+    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch("https://api.nanswap.com/v1/get-limits")
+    assert caught.value.reason == "provider_refused" and "500" in str(caught.value)
+
+
+def test_a_reply_larger_than_the_cap_is_not_read_whole(monkeypatch):
+    asked = []
+
+    class Huge(_Reply):
+        def read(self, size=-1):
+            asked.append(size)
+            return super().read(size)
+
+    body = b'{"min":"1","pad":"' + b"x" * ((1 << 20) + 10) + b'"}'
+    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Huge(body))
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch("https://api.nanswap.com/v1/get-limits")
+    assert caught.value.reason == "provider_response_unrecognised"
+    assert asked and all(0 <= size <= (1 << 20) + 1 for size in asked)

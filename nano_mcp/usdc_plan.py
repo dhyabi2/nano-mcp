@@ -53,6 +53,10 @@ RAW_PER_XNO = 10 ** 30
 MICRO = 10 ** 6
 HEADROOM_BPS = 100          # the estimate must clear the price by 1%: an estimate is not a firm quote
 MAX_RAW = 2 ** 128 - 1
+#: Longest amount text read as an integer: past Python's int digit limit int() raises a plain ValueError.
+MAX_DIGITS = 80
+#: Largest reply body read; the real replies are well under 1 KiB.
+MAX_REPLY = 1 << 20
 #: Decimal's default context keeps 28 digits and an XNO amount in raw has up to 39: every operation on a
 #: provider's number goes through this one, or the last digits are silently rounded away.
 _EXACT = Context(prec=120)
@@ -74,24 +78,29 @@ def _fetch(url: str) -> object:
     try:
         try:
             with urllib.request.urlopen(request, timeout=20) as reply:
-                status, text = reply.status, reply.read().decode("utf-8")
+                status, data = reply.status, reply.read(MAX_REPLY + 1)
+                text = data.decode("utf-8") if len(data) <= MAX_REPLY else None
         except urllib.error.HTTPError as exc:
-            status, text = exc.code, exc.read().decode("utf-8", "replace")
+            status, data = exc.code, exc.read(MAX_REPLY + 1)
+            text = data.decode("utf-8", "replace") if len(data) <= MAX_REPLY else None
     except (urllib.error.URLError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         # URLError and ConnectionResetError are OSErrors; IncompleteRead is an HTTPException.
         raise PlanRefused("provider_unreachable", "the swap service could not be read (%r)" % (exc,)) from exc
     if not 200 <= status < 300:
         said = None
         try:
-            body = json.loads(text)
+            body = json.loads(text) if text is not None else None
             said = body.get("message") if isinstance(body, dict) else None
-        except ValueError:
+        except (ValueError, RecursionError):
             pass
         raise PlanRefused("provider_refused", "the swap service answered HTTP %s%s" % (
             status, ": %r" % said if isinstance(said, str) else ""))
+    if text is None:
+        raise PlanRefused("provider_response_unrecognised",
+                          "the swap service's reply is larger than %d bytes" % MAX_REPLY)
     try:
         return json.loads(text, parse_float=str)     # a number stays the exact text that was sent
-    except ValueError as exc:
+    except (ValueError, RecursionError) as exc:
         raise PlanRefused("provider_response_unrecognised",
                           "the swap service's reply is not JSON: %r" % text[:120]) from exc
 
@@ -131,7 +140,7 @@ def _scaled(number: Decimal, unit: int, rounding) -> int:
 
 
 def _usdc_micro(text) -> int:
-    ok = isinstance(text, str) and text.strip().isascii()
+    ok = isinstance(text, str) and text.strip().isascii() and len(text.strip()) <= MAX_DIGITS
     whole, dot, frac = (text.strip() if ok else "").partition(".")
     if not ok or not (whole or frac) or not (whole or "0").isdigit() or (dot and not frac.isdigit()) or len(frac) > 6:
         raise PlanRefused("invalid_amount", "usdc_amount must be a decimal string with at most 6 decimals, "
@@ -159,7 +168,8 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
                        network: str, fetch=None) -> dict:
     """Read-only plan for paying `amount_raw` to `pay_to` from USDC on `network`. Raises PlanRefused."""
     fetch = fetch or _fetch
-    if not (isinstance(amount_raw, str) and amount_raw.isascii() and amount_raw.isdigit()) \
+    if not (isinstance(amount_raw, str) and amount_raw.isascii() and amount_raw.isdigit()
+            and len(amount_raw) <= MAX_DIGITS) \
             or not 0 < int(amount_raw) <= MAX_RAW:
         raise PlanRefused("invalid_amount", "amount_raw must be a whole number of raw in ASCII digits, "
                                             "as the 402 gives it (got %r)" % (amount_raw,))
@@ -170,7 +180,10 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
                           "own_account is the seller's account. The swap must land in YOUR account and the exact "
                           "raw is then sent on: a swap pointed at the seller delivers what it yielded, not the "
                           "price, from the swap service's account")
-    net = network.strip().upper() if isinstance(network, str) else ""
+    # isascii before upper(): "\u017f".upper() is "S" and "\u0131".upper() is "I", so upper() would turn a
+    # non-ASCII name into a real chain's ticker.
+    net = network.strip() if isinstance(network, str) else ""
+    net = net.upper() if net.isascii() else ""
     if not (net.isascii() and net.isalnum()):
         raise PlanRefused("invalid_network", "network is required: name the chain the USDC is on, such as 'BASE' "
                                              "(got %r). There is no default chain" % (network,))
