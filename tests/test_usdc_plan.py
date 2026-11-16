@@ -246,7 +246,7 @@ def _http_error(code, body=b"", error=None):
 def test_a_non_2xx_reply_is_refused_even_when_its_body_reads_well(monkeypatch, code):
     def urlopen(request, timeout=None):
         raise _http_error(code, b'{"amountTo":"99","amountFrom":5,"min":"0.1"}')
-    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(u, "_open", urlopen)
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-estimate")
     assert caught.value.reason == "provider_refused" and str(code) in str(caught.value)
@@ -255,16 +255,16 @@ def test_a_non_2xx_reply_is_refused_even_when_its_body_reads_well(monkeypatch, c
 def test_a_non_2xx_refusal_keeps_the_services_words(monkeypatch):
     def urlopen(request, timeout=None):
         raise _http_error(400, b'{"error":true,"message":"Not available"}')
-    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(u, "_open", urlopen)
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-estimate")
     assert caught.value.reason == "provider_refused" and "Not available" in str(caught.value)
 
 
 def test_a_2xx_status_other_than_200_is_read_and_a_3xx_is_not(monkeypatch):
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: _Reply(b'{"min":"1"}', 203))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: _Reply(b'{"min":"1"}', 203))
     assert u._fetch("https://api.nanswap.com/v1/get-limits") == {"min": "1"}
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: _Reply(b'{"min":"1"}', 304))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: _Reply(b'{"min":"1"}', 304))
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_refused"
@@ -282,7 +282,7 @@ def _broken_reads():
 
 @pytest.mark.parametrize("index", range(4))
 def test_a_reply_that_breaks_while_it_is_read_is_unreachable_not_a_crash(monkeypatch, index):
-    monkeypatch.setattr(u.urllib.request, "urlopen", _broken_reads()[index])
+    monkeypatch.setattr(u, "_open", _broken_reads()[index])
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_unreachable"
@@ -309,7 +309,7 @@ def test_an_amount_with_thousands_of_digits_is_refused_not_crashed_on(args):
 
 
 def test_a_deeply_nested_reply_is_unrecognised_not_a_crash(monkeypatch):
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: _Reply(b"[" * 200000))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: _Reply(b"[" * 200000))
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_response_unrecognised"
@@ -318,7 +318,7 @@ def test_a_deeply_nested_reply_is_unrecognised_not_a_crash(monkeypatch):
 def test_a_deeply_nested_error_body_still_gives_the_status(monkeypatch):
     def urlopen(request, timeout=None):
         raise _http_error(500, b"[" * 200000)
-    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(u, "_open", urlopen)
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_refused" and "500" in str(caught.value)
@@ -333,7 +333,7 @@ def test_a_reply_larger_than_the_cap_is_not_read_whole(monkeypatch):
             return super().read(size)
 
     body = b'{"min":"1","pad":"' + b"x" * ((1 << 20) + 10) + b'"}'
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Huge(body))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: Huge(body))
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_response_unrecognised"
@@ -370,7 +370,7 @@ def test_a_server_that_drips_its_reply_is_cut_off_at_the_deadline(monkeypatch):
             clock[0] += 19
             return super().read(1)
 
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Drip(b'{"min":"1"}'))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: Drip(b'{"min":"1"}'))
     with pytest.raises(u.PlanRefused) as caught:
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_unreachable" and "seconds" in str(caught.value)
@@ -382,7 +382,7 @@ def test_a_reply_that_arrives_in_pieces_within_the_deadline_is_read_whole(monkey
         def read1(self, size=-1):
             return super().read(min(size, 3))
 
-    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Pieces(b'{"min":"0.171836"}'))
+    monkeypatch.setattr(u, "_open", lambda request, timeout=None: Pieces(b'{"min":"0.171836"}'))
     assert u._fetch("https://api.nanswap.com/v1/get-limits") == {"min": "0.171836"}
 
 
@@ -395,3 +395,100 @@ def test_the_script_prints_its_usage_under_python_OO():
     done = subprocess.run([sys.executable, "-OO", script], capture_output=True, text=True, timeout=60)
     assert done.returncode == 2, done.stderr
     assert "PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT NETWORK" in done.stderr and "Traceback" not in done.stderr
+
+
+# --- redirects are refused, their bodies unread (PR #35 review) -----------------------------------------------
+
+BIG_302 = 32 << 20                       # 32 MiB, generated as it is sent
+
+
+@pytest.fixture
+def local_server(monkeypatch):
+    """A real HTTP server on 127.0.0.1: what the stock redirect handler does happens in urllib, not in a fake."""
+    import http.server
+    import threading
+    import time
+
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    sent = {"big": 0}
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def _head(self, code, length, location="/ok"):
+            self.send_response(code)
+            self.send_header("Location", location)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(length))
+            self.end_headers()
+            self.wfile.flush()
+
+        def do_GET(self):
+            try:
+                if self.path == "/ok":
+                    body = b'{"min":"1"}'
+                    self._head(200, len(body))
+                    self.wfile.write(body)
+                elif self.path == "/big302":
+                    self._head(302, BIG_302)
+                    chunk = b"x" * (64 * 1024)
+                    while sent["big"] < BIG_302:
+                        self.wfile.write(chunk)
+                        sent["big"] += len(chunk)
+                elif self.path == "/drip302":
+                    self._head(302, 40)
+                    for _ in range(40):
+                        self.wfile.write(b"x")
+                        self.wfile.flush()
+                        time.sleep(0.25)
+                elif self.path.startswith("/code"):
+                    self._head(int(self.path[5:]), 0)
+            except OSError:              # the client hung up: what a refused redirect should do
+                pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield "http://127.0.0.1:%d" % server.server_address[1], sent
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_a_redirect_with_a_huge_body_is_refused_without_reading_it(local_server):
+    import time
+    base, sent = local_server
+    started = time.monotonic()
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch(base + "/big302")
+    assert caught.value.reason == "provider_refused" and "302" in str(caught.value)
+    assert time.monotonic() - started < 5
+    time.sleep(0.5)
+    assert sent["big"] < BIG_302                  # the server could not hand over the whole body: no one read it
+
+
+def test_a_redirect_whose_body_drips_is_refused_within_the_deadline(local_server, monkeypatch):
+    import time
+    base, _ = local_server
+    monkeypatch.setattr(u, "DEADLINE", 1)
+    started = time.monotonic()
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch(base + "/drip302")
+    assert caught.value.reason == "provider_refused"
+    assert time.monotonic() - started < u.DEADLINE + 1
+
+
+@pytest.mark.parametrize("code", [301, 303, 307, 308])
+def test_no_redirect_is_followed(local_server, code):
+    base, _ = local_server
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch(base + "/code%d" % code)
+    assert caught.value.reason == "provider_refused" and str(code) in str(caught.value)
+
+
+def test_a_plain_200_from_a_real_server_is_still_read(local_server):
+    base, _ = local_server
+    assert u._fetch(base + "/ok") == {"min": "1"}

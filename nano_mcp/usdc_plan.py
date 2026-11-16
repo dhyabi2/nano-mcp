@@ -98,17 +98,37 @@ def _read_capped(reply, deadline: float) -> bytes:
     return b"".join(chunks)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow no redirect. The stock handler reads a 3xx body in full inside urlopen, before _read_capped, so
+    neither MAX_REPLY nor DEADLINE would bound it; returning None here makes every 3xx an HTTPError instead,
+    raised before its body is touched."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _open(request, timeout):
+    return _OPENER.open(request, timeout=timeout)
+
+
 def _fetch(url: str) -> object:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     deadline = time.monotonic() + DEADLINE
     try:
         try:
-            with urllib.request.urlopen(request, timeout=20) as reply:
+            with _open(request, timeout=20) as reply:
                 status, data = reply.status, _read_capped(reply, deadline)
                 text = data.decode("utf-8") if len(data) <= MAX_REPLY else None
         except urllib.error.HTTPError as exc:
-            status, data = exc.code, _read_capped(exc, deadline)
-            text = data.decode("utf-8", "replace") if len(data) <= MAX_REPLY else None
+            if 300 <= exc.code < 400:      # a redirect is refused unread: its body says nothing we would use
+                status, text = exc.code, None
+                exc.close()
+            else:
+                status, data = exc.code, _read_capped(exc, deadline)
+                text = data.decode("utf-8", "replace") if len(data) <= MAX_REPLY else None
     except (urllib.error.URLError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         # URLError and ConnectionResetError are OSErrors; IncompleteRead is an HTTPException.
         raise PlanRefused("provider_unreachable", "the swap service could not be read (%r)" % (exc,)) from exc
