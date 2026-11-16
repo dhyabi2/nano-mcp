@@ -232,7 +232,9 @@ class _Reply:
     def read(self, size=-1):
         if self.error is not None:
             raise self.error
-        return self.body if size is None or size < 0 else self.body[:size]
+        size = len(self.body) if size is None or size < 0 else size
+        part, self.body = self.body[:size], self.body[size:]        # a stream: what was read is gone
+        return part
 
 
 def _http_error(code, body=b"", error=None):
@@ -336,3 +338,60 @@ def test_a_reply_larger_than_the_cap_is_not_read_whole(monkeypatch):
         u._fetch("https://api.nanswap.com/v1/get-limits")
     assert caught.value.reason == "provider_response_unrecognised"
     assert asked and all(0 <= size <= (1 << 20) + 1 for size in asked)
+
+
+# --- break-review fixes (PR #35) ------------------------------------------------------------------------------
+
+BURN = "nano_1111111111111111111111111111111111111111111111111111hifc8npp"
+
+
+@pytest.mark.parametrize("burn", [BURN, "xrb_" + BURN[5:]])
+def test_the_swap_may_not_be_pointed_at_the_burn_account(burn):
+    seen = []
+    with pytest.raises(u.PlanRefused) as caught:
+        u.plan_pay_from_usdc(SELLER, PRICE, burn, "5", "BASE", fetch=wire(seen=seen))
+    assert caught.value.reason == "swap_destination_is_burn" and seen == []
+
+
+@pytest.mark.parametrize("field,value", [("from", "uſdc-base"), ("from", "USDC-BAſE")])
+def test_an_echoed_ticker_upper_would_turn_into_ascii_is_refused(field, value):
+    text = json.dumps({"amountTo": "15.46", "amountFrom": 5, field: value})
+    with pytest.raises(u.PlanRefused) as caught:
+        u.plan_pay_from_usdc(SELLER, PRICE, BUYER, "5", "BASE", fetch=wire(estimate=text))
+    assert caught.value.reason == "provider_response_unrecognised"
+
+
+def test_a_server_that_drips_its_reply_is_cut_off_at_the_deadline(monkeypatch):
+    clock = [1000.0]
+    monkeypatch.setattr(u.time, "monotonic", lambda: clock[0])
+
+    class Drip(_Reply):                    # each read returns one byte and takes 19 s: under any per-read timeout
+        def read1(self, size=-1):
+            clock[0] += 19
+            return super().read(1)
+
+    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Drip(b'{"min":"1"}'))
+    with pytest.raises(u.PlanRefused) as caught:
+        u._fetch("https://api.nanswap.com/v1/get-limits")
+    assert caught.value.reason == "provider_unreachable" and "seconds" in str(caught.value)
+    assert clock[0] - 1000.0 <= u.DEADLINE + 19                       # refused at the first read past it
+
+
+def test_a_reply_that_arrives_in_pieces_within_the_deadline_is_read_whole(monkeypatch):
+    class Pieces(_Reply):
+        def read1(self, size=-1):
+            return super().read(min(size, 3))
+
+    monkeypatch.setattr(u.urllib.request, "urlopen", lambda request, timeout=None: Pieces(b'{"min":"0.171836"}'))
+    assert u._fetch("https://api.nanswap.com/v1/get-limits") == {"min": "0.171836"}
+
+
+def test_the_script_prints_its_usage_under_python_OO():
+    import os
+    import subprocess
+    import sys
+
+    script = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "nano_mcp", "usdc_plan.py")
+    done = subprocess.run([sys.executable, "-OO", script], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 2, done.stderr
+    assert "PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT NETWORK" in done.stderr and "Traceback" not in done.stderr

@@ -12,7 +12,7 @@ key is read, nothing is signed. Stdlib only.
 What it refuses, and why:
   - `own_account` equal to `pay_to`: pointing the swap straight at the seller looks like it saves a step, and it
     breaks the payment - the service sends whatever the swap yielded, not the exact raw the 402 asked for, from
-    the service's account, so the seller cannot match it to the call.
+    the service's account, so the seller cannot match it to the call. The burn account (all-zero key) likewise.
   - a network left out: USDC lives on many chains, and USDC sent on the wrong one does not come back. There is
     no default chain; `network` must be named.
   - anything the service answers that is not understood: a field is never defaulted. A reply with a non-2xx
@@ -36,6 +36,7 @@ import http.client
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -57,6 +58,14 @@ MAX_RAW = 2 ** 128 - 1
 MAX_DIGITS = 80
 #: Largest reply body read; the real replies are well under 1 KiB.
 MAX_REPLY = 1 << 20
+#: Seconds one call may take in all. urlopen's timeout bounds each socket read only: a server that drips a byte
+#: at a time would keep the call going for as long as it likes.
+DEADLINE = 20
+_CHUNK = 64 * 1024
+#: Used when `__doc__` is gone (python -OO).
+USAGE = "python3 nano_mcp/usdc_plan.py PAY_TO AMOUNT_RAW OWN_ACCOUNT USDC_AMOUNT NETWORK   # stdlib only"
+#: The all-zero public key (nano_1111...hifc8npp): no one holds its key, so XNO sent there is gone for good.
+BURN_PUBKEY = bytes(32)
 #: Decimal's default context keeps 28 digits and an XNO amount in raw has up to 39: every operation on a
 #: provider's number goes through this one, or the last digits are silently rounded away.
 _EXACT = Context(prec=120)
@@ -73,15 +82,32 @@ class PlanRefused(ValueError):
         self.reason = reason
 
 
+def _read_capped(reply, deadline: float) -> bytes:
+    """At most MAX_REPLY + 1 bytes of `reply`, refused once the wall clock passes `deadline`."""
+    read = getattr(reply, "read1", None) or reply.read     # read1: one socket read per call, not "fill n bytes"
+    chunks, size = [], 0
+    while size <= MAX_REPLY:
+        if time.monotonic() > deadline:
+            raise PlanRefused("provider_unreachable",
+                              "the swap service did not answer within %s seconds" % DEADLINE)
+        chunk = read(min(_CHUNK, MAX_REPLY + 1 - size))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        size += len(chunk)
+    return b"".join(chunks)
+
+
 def _fetch(url: str) -> object:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    deadline = time.monotonic() + DEADLINE
     try:
         try:
             with urllib.request.urlopen(request, timeout=20) as reply:
-                status, data = reply.status, reply.read(MAX_REPLY + 1)
+                status, data = reply.status, _read_capped(reply, deadline)
                 text = data.decode("utf-8") if len(data) <= MAX_REPLY else None
         except urllib.error.HTTPError as exc:
-            status, data = exc.code, exc.read(MAX_REPLY + 1)
+            status, data = exc.code, _read_capped(exc, deadline)
             text = data.decode("utf-8", "replace") if len(data) <= MAX_REPLY else None
     except (urllib.error.URLError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         # URLError and ConnectionResetError are OSErrors; IncompleteRead is an HTTPException.
@@ -180,6 +206,10 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
                           "own_account is the seller's account. The swap must land in YOUR account and the exact "
                           "raw is then sent on: a swap pointed at the seller delivers what it yielded, not the "
                           "price, from the swap service's account")
+    if account_to_pubkey(own_account) == BURN_PUBKEY:
+        raise PlanRefused("swap_destination_is_burn",
+                          "own_account is the burn account (all-zero key): no one can spend from it, so the "
+                          "swapped XNO would be lost and the seller never paid")
     # isascii before upper(): "\u017f".upper() is "S" and "\u0131".upper() is "I", so upper() would turn a
     # non-ASCII name into a real chain's ticker.
     net = network.strip() if isinstance(network, str) else ""
@@ -223,7 +253,8 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
                           "/get-estimate: the reply is for %r USDC, not the %s asked"
                           % (estimate["amountFrom"], _usdc(spend)))
     for field, asked in (("from", ticker), ("to", "XNO")):
-        if field in estimate and not (isinstance(estimate[field], str)
+        # isascii before upper(), as for `network`: "uſdc-base".upper() is "USDC-BASE".
+        if field in estimate and not (isinstance(estimate[field], str) and estimate[field].isascii()
                                       and estimate[field].strip().upper() == asked):
             raise PlanRefused("provider_response_unrecognised",
                               "/get-estimate: the reply is for %s %r, not %s" % (field, estimate[field], asked))
@@ -245,7 +276,7 @@ def plan_pay_from_usdc(pay_to: str, amount_raw: str, own_account: str, usdc_amou
 def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 5:
-        print(__doc__.strip().splitlines()[-2].strip(), file=sys.stderr)
+        print(__doc__.strip().splitlines()[-2].strip() if __doc__ else USAGE, file=sys.stderr)
         return 2
     try:
         plan = plan_pay_from_usdc(*argv)
