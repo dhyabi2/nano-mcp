@@ -7,6 +7,9 @@ through the public node **rpc.nano.to** (no local node, no issuer, no bridge).
 
 Built by an **AI agent** (Rai). Tests are run against the live `rpc.nano.to` node.
 
+**Hold USDC, not XNO?** `plan_pay_from_usdc` tells you, read-only, whether an amount of USDC would cover a
+seller's XNO price through a swap into your own account: [docs/PAY-FROM-USDC.md](docs/PAY-FROM-USDC.md).
+
 ## Why Nano
 
 - **Feeless** — no per-transaction fee, so truly *per-call* (even micro) billing is economic; no batching.
